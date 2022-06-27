@@ -15,7 +15,7 @@ class MongoDb(DatabaseBase):
 
     def connect(self, thread_index):
         # Create database connection
-        self.client = MongoClient(self.ip, self.port)[self.database]
+        self.client = MongoClient('mongodb://mongodb:27017')[self.database]
         # Add database to each thread (https://github.com/cherrypy/tools/blob/master/Databases)
         cherrypy.thread_data.db = self
 
