@@ -17,16 +17,15 @@ import json
 from enum import Enum
 from .mep_exceptions import *
 import cherrypy
-import validators
-from validators import ValidationFailure
+from rfc3986 import is_valid_uri
 from typing import List
 import argparse
 from abc import ABC, abstractmethod
 
 
 def validate_uri(href: str) -> str:
-    valid_href = validators.url(href)
-    if isinstance(valid_href, ValidationFailure):
+    valid_href = is_valid_uri(href)
+    if not valid_href:
         raise TypeError
     return href
 

@@ -28,11 +28,11 @@ pyrsistent==0.18.1
 pytz==2021.3
 repoze.lru==0.7
 requests==2.27.1
+rfc3986==2.0.0
 Routes==2.5.1
 six==1.16.0
 tempora==5.0.1
 urllib3==1.26.9
-validators==0.18.2
 vine==5.0.0
 wcwidth==0.2.5
 zc.lockfile==2.0
