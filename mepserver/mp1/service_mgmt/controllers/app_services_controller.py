@@ -85,7 +85,18 @@ class ApplicationServicesController:
         # TODO NEEDS TO BE RATE LIMIT SINCE AN APP CAN HAVE N SERVICES
         data = cherrypy.request.json
         # The process of generating the class allows for "automatic" validation of the json
-        serviceInfo = ServiceInfo.from_json(data)
+        try:
+            serviceInfo = ServiceInfo.from_json(data)
+        except TypeError as e:
+            cherrypy.response.status = 400
+            errorMessage = ProblemDetails(
+                type="xxxx",
+                title="Bad Request. It is used to indicate that incorrect parameters were passed to the request.",
+                status=400,
+                detail = str(e),
+                instance="xxx"
+            )
+            return errorMessage
         # Add serInstanceId (uuid) to serviceInfo according to Section 8.1.2.2
         # serInstaceId is used as serviceId appServices
         serviceInfo.serInstanceId = str(uuid.uuid4())
@@ -101,12 +112,17 @@ class ApplicationServicesController:
         serviceInfo._links = _links
         # TODO serCategory IF NOT PRESENT NEEDS TO BE SET BY MEP (SOMEHOW TELL ME ETSI)
         # Check if the appInstanceId has already confirmed ready status
-        if (
-            cherrypy.thread_data.db.count_documents(
-                "appStatus", dict(appInstanceId=appInstanceId)
-            )
-            > 0
-        ):
+        appStatus = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query=dict(appInstanceId=appInstanceId),
+            fields=dict(indication=1),
+            find_one=True,
+        )
+
+        if appStatus is not None:
+            appStatus = appStatus['indication']
+
+        if appStatus == IndicationType.READY.name:
             # Store new service into the database
             cherrypy.thread_data.db.create(
                 "services", object_to_mongodb_dict(serviceInfo)
@@ -149,10 +165,15 @@ class ApplicationServicesController:
                     data=serviceNotification,
                     sleep_time=0,
                 )
+            cherrypy.response.status = 201
             return serviceInfo
-        else:
+        if appStatus is None:
             # TODO PROBLEM DETAILS OUTPUT
-            pass
+            cherrypy.response.status = 404
+            return None
+        else:
+            cherrypy.response.status = 403
+            return None
 
     @json_out(cls=NestedEncoder)
     def applicaton_services_get_with_service_id(

@@ -55,6 +55,8 @@ class GrantTypes(Enum):
 
 class IndicationType(Enum):
     READY = "READY"
+    INACTIVE = "INACTIVE"
+    SUSPENDED = "SUSPENDED"
 
 
 class OperationActionType(Enum):
