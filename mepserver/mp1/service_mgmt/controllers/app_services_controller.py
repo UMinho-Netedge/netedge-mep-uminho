@@ -88,12 +88,13 @@ class ApplicationServicesController:
         try:
             serviceInfo = ServiceInfo.from_json(data)
         except TypeError as e:
+            # TODO PROBLEM DETAILS OUTPUT
             cherrypy.response.status = 400
             errorMessage = ProblemDetails(
                 type="xxxx",
-                title="Bad Request. It is used to indicate that incorrect parameters were passed to the request.",
+                title="Bad Request.",
                 status=400,
-                detail = str(e),
+                detail = str(e).split(')')[1][1:].capitalize(),
                 instance="xxx"
             )
             return errorMessage
@@ -169,11 +170,28 @@ class ApplicationServicesController:
             return serviceInfo
         if appStatus is None:
             # TODO PROBLEM DETAILS OUTPUT
+            errorMessage = ProblemDetails(
+                type="xxxx",
+                title="Not Found."
+                      " URI.",
+                status=404,
+                detail = "The application %s was not found. "
+                         "Please, do the MEC application start-up process first." %appInstanceId,
+                instance="xxx"
+            )
             cherrypy.response.status = 404
-            return None
+            return errorMessage
         else:
+            # TODO PROBLEM DETAILS OUTPUT
             cherrypy.response.status = 403
-            return None
+            errorMessage = ProblemDetails(
+                type="xxxx",
+                title="Forbidden.",
+                status=403,
+                detail = "The application %s state is %s. Service creation is not allowed." %(appInstanceId, appStatus),
+                instance="xxx"
+            )
+            return errorMessage
 
     @json_out(cls=NestedEncoder)
     def applicaton_services_get_with_service_id(
