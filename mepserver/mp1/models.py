@@ -797,3 +797,56 @@ class AppTerminationConfirmation:
 
     def to_json(self):
         return ignore_none_value(dict(operationAction=self.operationAction))
+
+
+class Error:
+    def __init__(self, type: str, title: str, status: int, detail: str, instance: str):
+        self.type = type
+        self.title = title
+        self.status = status
+        self.detail = detail
+        self.instance = instance
+
+    def message(self):
+        cherrypy.response.status = self.status
+
+        return ProblemDetails(
+            type=self.type,
+            title=self.title,
+            status=self.status,
+            detail=self.detail,
+            instance=self.instance
+        )
+
+class BadRequest(Error):
+    def __init__(self, e: Exception):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="Bad Request",
+            status=400,
+            detail=str(e).split('\n')[0],
+            instance="xxx"
+        )
+
+class NotFound(Error):
+    def __init__(self, resource: str, id: str):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="Not Found",
+            status=404,
+            detail="The %s %s was not found." % (resource, id),
+            instance="xxx"
+        )
+
+class Forbidden(Error):
+    def __init__(self, resource: str, id: str, state: str):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="Forbidden",
+            status=403,
+            detail="The %s %s state is %s. This operation not allowed in this state." % (resource, id, state),
+            instance="xxx"
+        )

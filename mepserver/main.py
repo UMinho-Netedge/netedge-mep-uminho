@@ -32,6 +32,8 @@ from typing import Type
 import cherrypy
 import argparse
 from mp1.utils import check_port
+from mp1.models import ProblemDetails
+import json
 
 
 def main(database: Type[DatabaseBase]):
@@ -186,6 +188,9 @@ def main(database: Type[DatabaseBase]):
     mgmt_conf = {"/": {"request.dispatch": mgmt_dispatcher}}
     cherrypy.tree.mount(None, "/mec_service_mgmt/v1", config=mgmt_conf)
 
+    # Config 404 landing page
+    cherrypy.config.update({'error_page.404': error_page_404})
+
     ######################################
     # Database Connection to all threads #
     ######################################
@@ -194,6 +199,19 @@ def main(database: Type[DatabaseBase]):
         cherrypy.engine.start()
     else:
         cherrypy.log("Invalid database provided to MEP. Shutting down.")
+
+
+def error_page_404(status, message, traceback, version):
+    response = cherrypy.response
+    response.headers['Content-Type'] = 'application/json'
+    errorMessage = ProblemDetails(
+        type="xxxx",
+        title="Not Found.",
+        status=404,
+        detail="URI %s cannot be mapped to a valid resource." % cherrypy.request.path_info,
+        instance="xxx"
+    )
+    return json.dumps(errorMessage.to_json())
 
 
 if __name__ == "__main__":

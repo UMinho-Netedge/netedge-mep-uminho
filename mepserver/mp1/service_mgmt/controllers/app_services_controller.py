@@ -20,6 +20,7 @@ sys.path.append("../../")
 from mp1.models import *
 import uuid
 from .callbacks_controller import CallbackController
+import jsonschema
 
 
 class ApplicationServicesController:
@@ -87,17 +88,9 @@ class ApplicationServicesController:
         # The process of generating the class allows for "automatic" validation of the json
         try:
             serviceInfo = ServiceInfo.from_json(data)
-        except TypeError as e:
-            # TODO PROBLEM DETAILS OUTPUT
-            cherrypy.response.status = 400
-            errorMessage = ProblemDetails(
-                type="xxxx",
-                title="Bad Request.",
-                status=400,
-                detail = str(e).split(')')[1][1:].capitalize(),
-                instance="xxx"
-            )
-            return errorMessage
+        except (TypeError, jsonschema.exceptions.ValidationError) as e:
+            error = BadRequest(e)
+            return error.message()
         # Add serInstanceId (uuid) to serviceInfo according to Section 8.1.2.2
         # serInstaceId is used as serviceId appServices
         serviceInfo.serInstanceId = str(uuid.uuid4())
@@ -120,8 +113,11 @@ class ApplicationServicesController:
             find_one=True,
         )
 
-        if appStatus is not None:
-            appStatus = appStatus['indication']
+        if appStatus is None:
+            error = NotFound("application", appInstanceId)
+            return error.message()
+
+        appStatus = appStatus['indication']
 
         if appStatus == IndicationType.READY.name:
             # Store new service into the database
@@ -168,30 +164,9 @@ class ApplicationServicesController:
                 )
             cherrypy.response.status = 201
             return serviceInfo
-        if appStatus is None:
-            # TODO PROBLEM DETAILS OUTPUT
-            errorMessage = ProblemDetails(
-                type="xxxx",
-                title="Not Found."
-                      " URI.",
-                status=404,
-                detail = "The application %s was not found. "
-                         "Please, do the MEC application start-up process first." %appInstanceId,
-                instance="xxx"
-            )
-            cherrypy.response.status = 404
-            return errorMessage
         else:
-            # TODO PROBLEM DETAILS OUTPUT
-            cherrypy.response.status = 403
-            errorMessage = ProblemDetails(
-                type="xxxx",
-                title="Forbidden.",
-                status=403,
-                detail = "The application %s state is %s. Service creation is not allowed." %(appInstanceId, appStatus),
-                instance="xxx"
-            )
-            return errorMessage
+            error = Forbidden("application", appInstanceId, appStatus)
+            return error.message()
 
     @json_out(cls=NestedEncoder)
     def applicaton_services_get_with_service_id(
