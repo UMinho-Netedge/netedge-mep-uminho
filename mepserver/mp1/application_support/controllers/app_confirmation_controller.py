@@ -1,3 +1,4 @@
+import json
 import sys
 
 import cherrypy
@@ -61,23 +62,29 @@ class ApplicationConfirmationController:
             OperationActionType.TERMINATING,
             OperationActionType.STOPPING,
         ]:
+            appInstanceDict = dict(appInstanceId=appInstanceId)
             # Create a dict to be saved th
             appStatusDict = dict(
-                appInstanceId=appInstanceId, **appTerminationConfirmation.to_json()
+                {"indication" : appTerminationConfirmation.operationAction.name }
             )
-            # Indication is still and object and not the value
-            # We could use the json_out internal function but it is overkill for this instance
-            appStatusDict["operationAction"] = appStatusDict["operationAction"].name
+
+            # TODO CURRENTLY ONLY CHANGING APPSTATUS
+            # THIS SHOULD BE PERFORMED IN THE FIRST AppTerminationNotification POST to the callbackReference
+            # DOING IT HERE TO HELP TESTING APPSTATUS CHECKS
+            # THIS SHOULD BE ERASED IN THE FUTURE, CHECK SECTION 7.2.11.3.4
+            updateStatus = cherrypy.thread_data.db.update("appStatus", appInstanceDict ,appStatusDict)
+            if updateStatus.modified_count == 1:
+                cherrypy.response.status = 204
+                return None
+
             # TODO REMOVE THE REST OF THE DATA AND CREATE CALLBACK
-            # TODO CURRENTLY ONLY REMOVING APPSTATUS
-            # TODO CHECK IF WE CAN CURRENTLY DELETE
-            result = cherrypy.thread_data.db.remove(
-                "appStatus", dict(appInstanceId=appInstanceId)
-            )
-            # If our remove query failed it returns 0
-            if result.deleted_count == 0:
-                # TODO RETURN PROBLEM DETAILS
-                pass
+            # NOTIFY EVERY SUBSCRIBER
+
+            # result = cherrypy.thread_data.db.remove(
+            #     "appStatus", dict(appInstanceId=appInstanceId)
+            # )
+            # # If our remove query failed it returns 0
+            # if result.deleted_count == 0:
+            #     # TODO RETURN PROBLEM DETAILS
+            #     pass
             # Set header to 204 - No Content
-            cherrypy.response.status = 204
-            return None
