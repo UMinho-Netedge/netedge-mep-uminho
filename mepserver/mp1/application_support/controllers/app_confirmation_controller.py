@@ -38,6 +38,8 @@ class ApplicationConfirmationController:
             appStatusDict = dict(
                 appInstanceId=appInstanceId, **appConfirmReady.to_json()
             )
+
+            appStatusDict = appStatusDict | {"services":[]}
             # Indication is still and object and not the value
             # We could use the json_out internal function but it is overkill for this instance
             appStatusDict["indication"] = appStatusDict["indication"].name

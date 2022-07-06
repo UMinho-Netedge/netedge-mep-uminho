@@ -91,79 +91,114 @@ class ApplicationServicesController:
         except (TypeError, jsonschema.exceptions.ValidationError) as e:
             error = BadRequest(e)
             return error.message()
-        # Add serInstanceId (uuid) to serviceInfo according to Section 8.1.2.2
-        # serInstaceId is used as serviceId appServices
-        serviceInfo.serInstanceId = str(uuid.uuid4())
-        # Add _links data to serviceInfo
-        server_self_referencing_uri = cherrypy.url(
-            qs=cherrypy.request.query_string, relative="server"
-        )
-        _links = Links(
-            liveness=LinkType(
-                f"{server_self_referencing_uri}/{serviceInfo.serInstanceId}/liveness"
-            )
-        )
-        serviceInfo._links = _links
-        # TODO serCategory IF NOT PRESENT NEEDS TO BE SET BY MEP (SOMEHOW TELL ME ETSI)
+
         # Check if the appInstanceId has already confirmed ready status
         appStatus = cherrypy.thread_data.db.query_col(
             "appStatus",
             query=dict(appInstanceId=appInstanceId),
-            fields=dict(indication=1),
             find_one=True,
         )
 
+        # If app does not exist in db
         if appStatus is None:
             error = NotFound("application", appInstanceId)
             return error.message()
 
-        appStatus = appStatus['indication']
+        # if app exists and is READY
+        if appStatus['indication'] == IndicationType.READY.name:
 
-        if appStatus == IndicationType.READY.name:
-            # Store new service into the database
-            cherrypy.thread_data.db.create(
-                "services", object_to_mongodb_dict(serviceInfo)
-            )
-            # Obtain all the Subscriptions that match the newly added service
-            # Generate query that allows for all possible criteria using the $and and $or mongo operators
-            query = serviceInfo.to_filtering_criteria_json()
-            cherrypy.log(json.dumps(query, cls=NestedEncoder))
-            subscriptions = cherrypy.thread_data.db.query_col("subscriptions", query)
-            subscriptions = list(subscriptions)
-            # Before creating the object transform the serviceInfo into a json list since it is
-            # expecting a list of services in json
-            # We don't use the original data because it is missing parameters that are introduced internally
-            serviceInfoData = [json.loads(json.dumps(serviceInfo, cls=NestedEncoder))]
-            serviceNotification = (
-                ServiceAvailabilityNotification.from_json_service_list(
-                    data=serviceInfoData, changeType="ADDED"
+            # Checks if service already exists or if it is a new one
+            hasService = False
+            for service in appStatus["services"]:
+                if service["serName"] == serviceInfo.serName:
+                    hasService = True
+
+            # If it already exists updates service state
+            if hasService:
+                # Checks new serivce state and updates
+                cherrypy.thread_data.db.update(
+                    "services",
+                    query=dict(serName=serviceInfo.serName),
+                    newdata=dict(state=serviceInfo.state.name)
                 )
-            )
-            # If some subscriptions matches with the newly added service we need to notify them of this change
-            if len(subscriptions) > 0:
-                availability_notifications = []
-                # Transform each subscription into a ServiceNotificationSubscription class for easier usage
-                for subscription in list(subscriptions):
-                    appInstanceId = subscription.pop("appInstanceId")
-                    subscriptionId = subscription.pop("subscriptionId")
-                    # Remove subscriptionType from subscription due to the fact that SerAvailabilityNotificationSubscription
-                    # Is created usually from user input and we don't want him to control that parameter
-                    subscription.pop("subscriptionType")
-                    availability_notification = (
-                        SerAvailabilityNotificationSubscription.from_json(subscription)
+
+            # If it is new, creates
+            else:
+                # Add serInstanceId (uuid) to serviceInfo according to Section 8.1.2.2
+                # serInstaceId is used as serviceId appServices
+                serviceInfo.serInstanceId = str(uuid.uuid4())
+
+                appStatus["services"].append({"serName": serviceInfo.serName,
+                                              "serInstanceId": serviceInfo.serInstanceId})
+
+                # updates appStatus with new service
+                cherrypy.thread_data.db.update(
+                    "appStatus",
+                    query=dict(appInstanceId=appInstanceId),
+                    newdata=dict(services=appStatus["services"])
+                )
+
+                # Add _links data to serviceInfo
+                server_self_referencing_uri = cherrypy.url(
+                    qs=cherrypy.request.query_string, relative="server"
+                )
+                _links = Links(
+                    liveness=LinkType(
+                        f"{server_self_referencing_uri}/{serviceInfo.serInstanceId}/liveness"
                     )
-                    availability_notification.appInstanceId = appInstanceId
-                    availability_notification.subscriptionId = subscriptionId
-                    availability_notifications.append(availability_notification)
-                # Call the callback with the list of SerAvailabilityNotificationSubscriptions
-                # Use a sleep_time of 0 (the subscriber is already up and waiting for subscriptions)
-                CallbackController.execute_callback(
-                    availability_notifications=availability_notifications,
-                    data=serviceNotification,
-                    sleep_time=0,
                 )
+                serviceInfo._links = _links
+                # TODO serCategory IF NOT PRESENT NEEDS TO BE SET BY MEP (SOMEHOW TELL ME ETSI)
+
+                # Store new service into the database
+                cherrypy.thread_data.db.create(
+                    "services", object_to_mongodb_dict(serviceInfo)
+                )
+
+                # TODO CHECK ALL THIS SUBSCRIPTION AND NOTIFICATION PART
+                # Obtain all the Subscriptions that match the newly added/updated service
+                # Generate query that allows for all possible criteria using the $and and $or mongo operators
+                query = serviceInfo.to_filtering_criteria_json()
+                cherrypy.log(json.dumps(query, cls=NestedEncoder))
+                subscriptions = cherrypy.thread_data.db.query_col("subscriptions", query)
+                subscriptions = list(subscriptions)
+                # Before creating the object transform the serviceInfo into a json list since it is
+                # expecting a list of services in json
+                # We don't use the original data because it is missing parameters that are introduced internally
+                serviceInfoData = [json.loads(json.dumps(serviceInfo, cls=NestedEncoder))]
+                serviceNotification = (
+                    ServiceAvailabilityNotification.from_json_service_list(
+                        data=serviceInfoData, changeType="ADDED"
+                    )
+                )
+                # If some subscriptions matches with the newly added service we need to notify them of this change
+                if len(subscriptions) > 0:
+                    availability_notifications = []
+                    # Transform each subscription into a ServiceNotificationSubscription class for easier usage
+                    for subscription in list(subscriptions):
+                        appInstanceId = subscription.pop("appInstanceId")
+                        subscriptionId = subscription.pop("subscriptionId")
+                        # Remove subscriptionType from subscription due to the fact that SerAvailabilityNotificationSubscription
+                        # Is created usually from user input and we don't want him to control that parameter
+                        subscription.pop("subscriptionType")
+                        availability_notification = (
+                            SerAvailabilityNotificationSubscription.from_json(subscription)
+                        )
+                        availability_notification.appInstanceId = appInstanceId
+                        availability_notification.subscriptionId = subscriptionId
+                        availability_notifications.append(availability_notification)
+                    # Call the callback with the list of SerAvailabilityNotificationSubscriptions
+                    # Use a sleep_time of 0 (the subscriber is already up and waiting for subscriptions)
+                    CallbackController.execute_callback(
+                        availability_notifications=availability_notifications,
+                        data=serviceNotification,
+                        sleep_time=0,
+                    )
+
             cherrypy.response.status = 201
             return serviceInfo
+
+        # If app existis and is not READY
         else:
             error = Forbidden("application", appInstanceId, appStatus)
             return error.message()
