@@ -11,7 +11,7 @@
 #     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
-
+import json
 import sys
 
 import cherrypy
@@ -20,6 +20,8 @@ sys.path.append("../../")
 from mp1.models import *
 import uuid
 from .callbacks_controller import CallbackController
+import jsonschema
+from deepdiff import DeepDiff
 
 
 class ApplicationServicesController:
@@ -85,74 +87,173 @@ class ApplicationServicesController:
         # TODO NEEDS TO BE RATE LIMIT SINCE AN APP CAN HAVE N SERVICES
         data = cherrypy.request.json
         # The process of generating the class allows for "automatic" validation of the json
-        serviceInfo = ServiceInfo.from_json(data)
-        # Add serInstanceId (uuid) to serviceInfo according to Section 8.1.2.2
-        # serInstaceId is used as serviceId appServices
-        serviceInfo.serInstanceId = str(uuid.uuid4())
-        # Add _links data to serviceInfo
-        server_self_referencing_uri = cherrypy.url(
-            qs=cherrypy.request.query_string, relative="server"
-        )
-        _links = Links(
-            liveness=LinkType(
-                f"{server_self_referencing_uri}/{serviceInfo.serInstanceId}/liveness"
+        try:
+            serviceInfo = ServiceInfo.from_json(data)
+            # Add _links data to serviceInfo
+            server_self_referencing_uri = cherrypy.url(
+                qs=cherrypy.request.query_string, relative="server"
             )
-        )
-        serviceInfo._links = _links
-        # TODO serCategory IF NOT PRESENT NEEDS TO BE SET BY MEP (SOMEHOW TELL ME ETSI)
+            _links = Links(
+                liveness=LinkType(
+                    f"{server_self_referencing_uri}/{serviceInfo.serInstanceId}/liveness"
+                )
+            )
+            serviceInfo._links = _links
+            notify_changeType = None
+            # TODO serCategory IF NOT PRESENT NEEDS TO BE SET BY MEP (SOMEHOW TELL ME ETSI)
+
+        except (TypeError, jsonschema.exceptions.ValidationError) as e:
+            error = BadRequest(e)
+            return error.message()
+
         # Check if the appInstanceId has already confirmed ready status
-        if (
-            cherrypy.thread_data.db.count_documents(
-                "appStatus", dict(appInstanceId=appInstanceId)
-            )
-            > 0
-        ):
-            # Store new service into the database
-            cherrypy.thread_data.db.create(
-                "services", object_to_mongodb_dict(serviceInfo)
-            )
-            # Obtain all the Subscriptions that match the newly added service
-            # Generate query that allows for all possible criteria using the $and and $or mongo operators
-            query = serviceInfo.to_filtering_criteria_json()
-            cherrypy.log(json.dumps(query, cls=NestedEncoder))
-            subscriptions = cherrypy.thread_data.db.query_col("subscriptions", query)
-            subscriptions = list(subscriptions)
-            # Before creating the object transform the serviceInfo into a json list since it is
-            # expecting a list of services in json
-            # We don't use the original data because it is missing parameters that are introduced internally
-            serviceInfoData = [json.loads(json.dumps(serviceInfo, cls=NestedEncoder))]
-            serviceNotification = (
-                ServiceAvailabilityNotification.from_json_service_list(
-                    data=serviceInfoData, changeType="ADDED"
+        appStatus = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query=dict(appInstanceId=appInstanceId),
+            find_one=True,
+        )
+
+        # If app does not exist in db
+        if appStatus is None:
+            error_msg = "Application %s was not found." % (appInstanceId)
+            error = NotFound(error_msg)
+            return error.message()
+
+        # if app exists and is READY
+        if appStatus['indication'] == IndicationType.READY.name:
+
+            # Checks if service already exists or if it is a new one
+            hasService = False
+            for appService in appStatus["services"]:
+                if appService["serName"] == serviceInfo.serName:
+                    hasService = True
+                    appService["state"] = serviceInfo.state.name
+                    break
+
+            # If it already exists updates service state
+            if hasService:
+                service = cherrypy.thread_data.db.query_col(
+                    "services",
+                    query=dict(serInstanceId=appService["serInstanceId"]),
+                    find_one=True,
                 )
-            )
-            # If some subscriptions matches with the newly added service we need to notify them of this change
-            if len(subscriptions) > 0:
-                availability_notifications = []
-                # Transform each subscription into a ServiceNotificationSubscription class for easier usage
-                for subscription in list(subscriptions):
-                    appInstanceId = subscription.pop("appInstanceId")
-                    subscriptionId = subscription.pop("subscriptionId")
-                    # Remove subscriptionType from subscription due to the fact that SerAvailabilityNotificationSubscription
-                    # Is created usually from user input and we don't want him to control that parameter
-                    subscription.pop("subscriptionType")
-                    availability_notification = (
-                        SerAvailabilityNotificationSubscription.from_json(subscription)
+
+                serviceInfo.serInstanceId = appService["serInstanceId"]
+
+                diff = DeepDiff(service, object_to_mongodb_dict(serviceInfo), ignore_order=True)
+
+                # If something changed in the service, must update db
+                if(len(diff) > 0):
+
+                    # At least one attribute of the service other than state was changed. The change may or may not include changing the state.
+                    notify_changeType = ChangeType.ATTRIBUTES_CHANGED
+
+                    # Only the state of the service was changed.
+                    if len(diff) == 1 and 'values_changed' in diff and "root['state']" in diff['values_changed'] and len(diff['values_changed']) == 1:
+                        notify_changeType = ChangeType.STATE_CHANGED
+
+
+                    # Checks new service state and updates
+                    cherrypy.thread_data.db.update(
+                        "services",
+                        query=dict(serName=serviceInfo.serName),
+                        newdata=object_to_mongodb_dict(serviceInfo)
                     )
-                    availability_notification.appInstanceId = appInstanceId
-                    availability_notification.subscriptionId = subscriptionId
-                    availability_notifications.append(availability_notification)
-                # Call the callback with the list of SerAvailabilityNotificationSubscriptions
-                # Use a sleep_time of 0 (the subscriber is already up and waiting for subscriptions)
-                CallbackController.execute_callback(
-                    availability_notifications=availability_notifications,
-                    data=serviceNotification,
-                    sleep_time=0,
+
+                    cherrypy.thread_data.db.update(
+                        "appStatus",
+                        query=dict(appInstanceId=appInstanceId),
+                        newdata=dict(services=appStatus["services"])
+                    )
+
+                    cherrypy.log(
+                                "Application %s service %s updated:\n %s."
+                                %(appInstanceId, appService["serInstanceId"], diff)
+                                 )
+
+            # If it is new, creates
+            else:
+                # The service was newly added.
+                notify_changeType = ChangeType.ADDED
+
+                # Add serInstanceId (uuid) to serviceInfo according to Section 8.1.2.2
+                # serInstaceId is used as serviceId appServices
+                serviceInfo.serInstanceId = str(uuid.uuid4())
+
+                appStatus["services"].append({"serName": serviceInfo.serName,
+                                              "serInstanceId": serviceInfo.serInstanceId,
+                                              "state": serviceInfo.state.name})
+
+                # updates appStatus with new service
+                cherrypy.thread_data.db.update(
+                    "appStatus",
+                    query=dict(appInstanceId=appInstanceId),
+                    newdata=dict(services=appStatus["services"])
                 )
+
+                # Store new service into the database
+                cherrypy.thread_data.db.create(
+                    "services", object_to_mongodb_dict(serviceInfo)
+                )
+
+                cherrypy.log(
+                            "Application %s created a new service:\n %s."
+                             %(appInstanceId, json.dumps(object_to_mongodb_dict(serviceInfo)))
+                             )
+
+            # TODO TEST ALL THIS SUBSCRIPTION AND NOTIFICATION PART WHEN SERVICE AND APP ARE AVAILABLE
+            if notify_changeType is not None:
+                # Obtain all the Subscriptions that match the newly added/updated service
+                # Generate query that allows for all possible criteria using the $and and $or mongo operators
+                query = serviceInfo.to_filtering_criteria_json()
+                # cherrypy.log(json.dumps(query, cls=NestedEncoder))
+                subscriptions = cherrypy.thread_data.db.query_col("subscriptions", query)
+                subscriptions = list(subscriptions)
+                # Before creating the object transform the serviceInfo into a json list since it is
+                # expecting a list of services in json
+                # We don't use the original data because it is missing parameters that are introduced internally
+                serviceInfoData = [json.loads(json.dumps(serviceInfo, cls=NestedEncoder))]
+
+                # TODO CHANGETYPE ADDED, STATE_CHANGED, ATRIBUTES_CHANGED
+                serviceNotification = (
+                    ServiceAvailabilityNotification.from_json_service_list(
+                        data=serviceInfoData, changeType=notify_changeType.name
+                    )
+                )
+                # If some subscriptions matches with the newly added service we need to notify them of this change
+                if len(subscriptions) > 0:
+                    availability_notifications = []
+                    # Transform each subscription into a ServiceNotificationSubscription class for easier usage
+                    for subscription in list(subscriptions):
+                        appInstanceId = subscription.pop("appInstanceId")
+                        subscriptionId = subscription.pop("subscriptionId")
+                        # Remove subscriptionType from subscription due to the fact that SerAvailabilityNotificationSubscription
+                        # Is created usually from user input and we don't want him to control that parameter
+                        subscription.pop("subscriptionType")
+                        availability_notification = (
+                            SerAvailabilityNotificationSubscription.from_json(subscription)
+                        )
+                        availability_notification.appInstanceId = appInstanceId
+                        availability_notification.subscriptionId = subscriptionId
+                        availability_notifications.append(availability_notification)
+                    # Call the callback with the list of SerAvailabilityNotificationSubscriptions
+                    # Use a sleep_time of 0 (the subscriber is already up and waiting for subscriptions)
+                    CallbackController.execute_callback(
+                        availability_notifications=availability_notifications,
+                        data=serviceNotification,
+                        sleep_time=0,
+                    )
+
+
+            cherrypy.response.headers["location"] = serviceInfo.serCategory.href
+            cherrypy.response.status = 201
             return serviceInfo
+
+        # If app existis and is not READY
         else:
-            # TODO PROBLEM DETAILS OUTPUT
-            pass
+            error_msg = "Application %s is in %s state. This operation not allowed in this state." %(appInstanceId, appStatus["indication"])
+            error = Forbidden(error_msg)
+            return error.message()
 
     @json_out(cls=NestedEncoder)
     def applicaton_services_get_with_service_id(
