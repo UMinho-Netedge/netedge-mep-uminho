@@ -140,6 +140,7 @@ endpointinfo_address_schema = {
     "required": ["host", "port"],
     "additionalProperties": False,
 }
+
 endpointinfo_addresses_schema = {
     "type": "object",
     "properties": {
@@ -235,5 +236,54 @@ appterminationconfirmation_schema = {
     "type": "object",
     "properties": {"operationAction": {"type": "string"}},
     "required": ["operationAction"],
+    "additionalProperties": False,
+}
+
+
+service_get_schema = {
+    "type": "object",
+    "properties": {
+        "ser_instance_id": {
+            "type": "array", 
+            "items": {"type": "string"}
+        },
+        "ser_name": {
+            "type": "array",
+            "items": {"type": "string"}
+        },
+        "ser_category_id": {"type": "string"},
+        "scope_of_locality": {
+            "enum": [
+                "MEC_SYSTEM",
+                "MEC_HOST",
+                "NFVI_POP",
+                "ZONE",
+                "ZONE_GROUP",
+                "NFVI_NODE",
+            ]
+        },
+        "consumed_local_only": {"type": "boolean"},
+        "is_local": {"type": "boolean"} 
+    },
+    "dependencies": {
+        "ser_instance_id": {
+            "allOf": [
+                {"not": {"required": ["ser_name"]}},
+                {"not": {"required": ["ser_category_id"]}}
+            ]
+        },
+        "ser_name": {
+            "allOf": [
+                {"not": {"required": ["ser_instance_id"]}},
+                {"not": {"required": ["ser_category_id"]}}
+            ]
+        },
+        "ser_category_id": {
+            "allOf": [
+                {"not": {"required": ["ser_instance_id"]}},
+                {"not": {"required": ["ser_name"]}}
+            ]
+        }
+    },
     "additionalProperties": False,
 }

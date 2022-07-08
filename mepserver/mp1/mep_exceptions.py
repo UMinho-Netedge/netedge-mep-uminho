@@ -12,9 +12,31 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
+from urllib import response
+#from mp1.models import ProblemDetails
+import ast
+import json
 
 class InvalidQuery(Exception):
-    pass
+    #cherrypy.response.status = 400
+    #errorvar = ProblemDetails(type='tipo', title='titulo', status='estado', detail='detalhe', instance='instancia')
+    
+    '''
+    def handle(ex, req, resp, param):
+        print("AQUI!!!!!")
+        resp.status = 437
+        response = json.loads(json.dumps(ast.literal_eval(str(ex))))
+        resp.body = json.dumps(response)
+        
+    '''
+    def __init__(self, error=437, message="Erro de exclusao mutua"):
+        self.error = error
+        self.message = message
+        super().__init__(self.error, self.message)
+
+    #pass
+
+
 
 
 class InvalidGrantType(Exception):

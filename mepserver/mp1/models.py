@@ -22,6 +22,8 @@ from .enums import *
 from .mep_exceptions import *
 from .schemas import *
 
+import pprint # Dictionaries pretty print (for testing)
+
 ####################################
 # Classes used by both support and #
 # management api                   #
@@ -759,6 +761,101 @@ class ServiceInfo:
                 for key, val in list(tmp_ret.items())
             ]
         }
+
+
+class ServiceGet:
+    def __init__(
+        self,
+        ser_instance_id: List[str] = {},
+        ser_name: List[str] = {},
+        ser_category_id: str = '',
+        scope_of_locality: LocalityType = LocalityType.MEC_HOST,
+        consumed_local_only: bool = False,
+        is_local: bool = False,
+    ):
+        """
+        :param states: States of the services about which to report events. If the event is a state change, this filter represents the state after the change
+        :type states: List[ServiceState]
+        :param isLocal: Restrict event reporting to whether the service is local to the MEC platform where the subscription is managed.
+        :type isLocal: Boolean
+        :param serInstanceIds: Identifiers of service instances about which to report events
+        :type serInstanceIds: String
+        :param serNames: Names of services about which to report events
+        :type serNames: String
+        :param serCategories: Categories of services about which to report events.
+        :type serCategories: List of CategoryRef
+
+        Note serCategories, serInstanceId and serNames are mutually-exclusive
+        Raises KeyError when Invalid Enum is provided
+        Raises InvalidIdentifier if no identifier is specified
+
+        Section 8.2.3.3.1
+        """
+        self.ser_instance_id = ser_instance_id
+        self.ser_name = ser_name
+        self.ser_category_id = ser_category_id
+        self.scope_of_locality = scope_of_locality
+        self.consumed_local_only = consumed_local_only
+        self.is_local = is_local
+
+    def __str__(self):
+        return "\nser_instance_id: "+str(self.ser_instance_id)+ \
+                "\nser_name: "+str(self.ser_name)+ \
+                "\nser_category_id: "+str(self.ser_category_id)+ \
+                "\nscope_of_locality: "+str(self.scope_of_locality)+ \
+                "\nconsumed_local_only: "+str(self.consumed_local_only)+ \
+                "\nis_local: "+str(self.is_local)
+    
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                ser_instance_id=self.ser_instance_id,
+                ser_name=self.ser_name,
+                ser_category_id=self.ser_category_id,
+                scope_of_locality=self.scope_of_locality,
+                consumed_local_only=self.consumed_local_only,
+                is_local=self.is_local
+            )
+        )
+
+
+    def to_query(self):
+        print('\n#########\nTO_QUERY')
+        '''
+        service_get_dict = dict(
+                                ser_instance_id=self.ser_instance_id,
+                                ser_name=self.ser_name,
+                                ser_category_id=dict(id=self.ser_category_id),
+                                scope_of_locality=self.scope_of_locality,
+                                consumed_local_only=self.consumed_local_only,
+                                is_local=self.is_local
+                            )
+        '''
+        service_get_dict = dict({"ser_name": ["test_3"]})
+        print(service_get_dict)
+
+        validate(instance=service_get_dict, schema=service_get_schema)
+        
+        '''
+        query = none_to_empty_brackets(
+                        dict(
+                            ser_instance_id=self.ser_instance_id,
+                            ser_name=self.ser_name,
+                            ser_category_id=dict(id=self.ser_category_id),
+                            scope_of_locality=self.scope_of_locality,
+                            consumed_local_only=self.consumed_local_only,
+                            is_local=self.is_local
+                        )
+        )
+
+        
+        '''
+        query = none_to_empty_brackets(service_get_dict)
+
+        query = dict({"ser_name": 'test_3'})
+        print("\ninside to_query, after validate")
+        pprint.pprint(query)
+        return query
 
 
 ####################################

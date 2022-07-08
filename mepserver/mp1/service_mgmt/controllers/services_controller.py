@@ -16,19 +16,20 @@ import sys
 
 sys.path.append("../../")
 from mp1.models import *
+import jsonschema
 
 
 class ServicesController:
-    @url_query_validator(cls=ServicesQueryValidator)
+    #@url_query_validator(cls=ServicesQueryValidator)
     @json_out(cls=NestedEncoder)
     def services_get(
         self,
         ser_instance_id: List[str] = None,
         ser_name: List[str] = None,
-        ser_category_id: List[str] = None,
+        ser_category_id: str = None,
+        scope_of_locality: str = None,
         consumed_local_only: bool = False,
         is_local: bool = False,
-        scope_of_locality: str = None,
     ):
         """
         This method retrieves information about a list of mecService resources. This method is typically used in "service availability query" procedure
@@ -52,18 +53,37 @@ class ServicesController:
         :return: ServiceInfo or ProblemDetails
         HTTP STATUS CODE: 200, 400, 403, 404, 414
         """
-        query = dict(
-            serInstanceId=ser_instance_id,
-            serName=ser_name,
-            serCategory=dict(id=ser_category_id),
-            consumedLocalOnly=consumed_local_only,
-            isLocal=is_local,
-            scopeOfLocality=scope_of_locality,
-        )
-        data = cherrypy.thread_data.db.query_col("services", query)
+
+        try:
+            query = ServiceGet(
+                                ser_instance_id=ser_instance_id,
+                                ser_name=ser_name,
+                                ser_category_id=ser_category_id,
+                                scope_of_locality=scope_of_locality,
+                                consumed_local_only=consumed_local_only,
+                                is_local=is_local)
+            print(f'# ServiceGet instance #\n{query}')
+            query = query.to_query()
+            result = cherrypy.thread_data.db.query_col("services", query)
+
+
+        except jsonschema.exceptions.ValidationError as e:
+            # TODO PROBLEM DETAILS OUTPUT
+            cherrypy.response.status = 400
+            errorMessage = ProblemDetails(
+                type="xxxx",
+                title="Bad Request.",
+                status=400,
+                # detail = str(e).split(')')[1][1:].capitalize(),
+                detail = str(e),
+                instance="xxx"
+            )
+            return errorMessage
+
         # Data is a pymongo cursor we first need to convert it into a json serializable object
         # Since this query is supposed to return various valid Services we can simply convert into a list
-        return list(data)
+        return list(result)
+        
 
     @json_out(cls=NestedEncoder)
     def services_get_with_serviceId(self, serviceId: str):
