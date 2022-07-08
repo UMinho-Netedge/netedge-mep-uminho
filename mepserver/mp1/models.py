@@ -830,23 +830,23 @@ class BadRequest(Error):
         )
 
 class NotFound(Error):
-    def __init__(self, resource: str, id: str):
+    def __init__(self, detail: str = "This resource was not found"):
         Error.__init__(
             self,
             type="xxx",
             title="Not Found",
             status=404,
-            detail="The %s %s was not found." % (resource, id),
+            detail=detail,
             instance="xxx"
         )
 
 class Forbidden(Error):
-    def __init__(self, resource: str, id: str, state: str):
+    def __init__(self, detail : str = "This operation not allowed"):
         Error.__init__(
             self,
             type="xxx",
             title="Forbidden",
             status=403,
-            detail="The %s %s state is %s. This operation not allowed in this state." % (resource, id, state),
+            detail=detail,
             instance="xxx"
         )
