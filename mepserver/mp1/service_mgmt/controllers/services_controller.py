@@ -17,6 +17,7 @@ import sys
 sys.path.append("../../")
 from mp1.models import *
 import jsonschema
+import uuid
 
 
 class ServicesController:
@@ -28,8 +29,9 @@ class ServicesController:
         ser_name: List[str] = None,
         ser_category_id: str = None,
         scope_of_locality: str = None,
-        consumed_local_only: bool = False,
-        is_local: bool = False,
+        consumed_local_only: bool = None,
+        is_local: bool = None,
+        **kwargs,
     ):
         """
         This method retrieves information about a list of mecService resources. This method is typically used in "service availability query" procedure
@@ -48,38 +50,50 @@ class ServicesController:
         :param scope_of_locality: A MEC application instance may use scope_of_locality as an input parameter to query the availability of a list of MEC service instances with a certain scope of locality.
         :type scope_of_locality: String
 
-        :note: ser_name, ser_category_id, ser_instance_id are mutually-exclusive only one should be used
+        :note: ser_name, ser_category_id, ser_instance_id are mutually-exclusive only one should be used or none
 
         :return: ServiceInfo or ProblemDetails
         HTTP STATUS CODE: 200, 400, 403, 404, 414
         """
-
+        
+        #  If kwargs isn't None the get request was made with invalid atributes
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+            
         try:
             query = ServiceGet(
-                                ser_instance_id=ser_instance_id,
-                                ser_name=ser_name,
-                                ser_category_id=ser_category_id,
-                                scope_of_locality=scope_of_locality,
-                                consumed_local_only=consumed_local_only,
-                                is_local=is_local)
-            print(f'# ServiceGet instance #\n{query}')
+                        ser_instance_id=ser_instance_id,
+                        ser_name=ser_name,
+                        ser_category_id=ser_category_id,
+                        scope_of_locality=scope_of_locality,
+                        consumed_local_only=consumed_local_only,
+                        is_local=is_local)
             query = query.to_query()
+
+            if ser_instance_id != None:
+                try:
+                    uuid.UUID(str(ser_instance_id))
+                except ValueError:
+                    error_msg = "'ser_instance_id' attempted with invalid format." \
+                                " Value is required in UUID format."
+                    error = BadRequest(error_msg)
+                    return error.message()
+
             result = cherrypy.thread_data.db.query_col("services", query)
 
-
         except jsonschema.exceptions.ValidationError as e:
-            # TODO PROBLEM DETAILS OUTPUT
-            cherrypy.response.status = 400
-            errorMessage = ProblemDetails(
-                type="xxxx",
-                title="Bad Request.",
-                status=400,
-                # detail = str(e).split(')')[1][1:].capitalize(),
-                detail = str(e),
-                instance="xxx"
-            )
-            return errorMessage
-
+            if "is not of type" in str(e.message):
+                error_msg = "Invalid type in '"                                 \
+                            + str(camel_to_snake(e.json_path.replace("$.",""))) \
+                            + "' attribute: "+str(e.message)
+            else:
+                error_msg = "Either 'ser_instance_id' or 'ser_name' or "        \
+                        "'ser_category_id' or none of them shall be present."
+            error = BadRequest(error_msg)
+            return error.message()
+ 
         # Data is a pymongo cursor we first need to convert it into a json serializable object
         # Since this query is supposed to return various valid Services we can simply convert into a list
         return list(result)
@@ -101,3 +115,12 @@ class ServicesController:
         )
         serviceInfo = ServiceInfo.from_json(data)
         return serviceInfo
+
+
+    def __str__(self):
+        return "\nser_instance_id: "+str(self.ser_instance_id)+ \
+                "\nser_name: "+str(self.ser_name)+ \
+                "\nser_category_id: "+str(self.ser_category_id)+ \
+                "\nscope_of_locality: "+str(self.scope_of_locality)+ \
+                "\nconsumed_local_only: "+str(self.consumed_local_only)+ \
+                "\nis_local: "+str(self.is_local)
