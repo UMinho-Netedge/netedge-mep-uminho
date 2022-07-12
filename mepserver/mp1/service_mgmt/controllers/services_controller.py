@@ -100,7 +100,10 @@ class ServicesController:
         
 
     @json_out(cls=NestedEncoder)
-    def services_get_with_serviceId(self, serviceId: str):
+    def services_get_with_serviceId(
+        self, 
+        serviceId: str,
+        **kwargs):
         """
         This method retrieves information about a mecService resource. This method is typically used in "service availability query" procedure
 
@@ -109,12 +112,25 @@ class ServicesController:
 
         :return: ServiceInfo or ProblemDetails
         """
-        # TODO VALIDATE PARAMETERS (i.e mutually exclusive) AND CREATE QUERY
-        data = json.loads(
-            '{"serName":"working","livenessInterval":5,"_links":{"self":{"href":"http://www.google.com"},"liveness":{"href":"http://www.google.com"}},"version":"string","state":"ACTIVE","transportInfo":{"id":"string","endpoint":{"uris":["http://www.google.com"]},"name":"string","description":"string","type":"REST_HTTP","protocol":"string","version":"string","security":{"oAuth2Info":{"grantTypes":["OAUTH2_AUTHORIZATION_CODE"],"tokenEndpoint":"string"}},"implSpecificInfo":{}},"serializer":"JSON","scopeOfLocality":"MEC_SYSTEM","consumedLocalOnly":true,"isLocal":true}'
-        )
-        serviceInfo = ServiceInfo.from_json(data)
-        return serviceInfo
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+
+        try:
+            uuid.UUID(str(serviceId))
+        except ValueError:
+            error_msg = "Attempted 'serviceId' with invalid format." \
+                        " Value is required in UUID format."
+            error = BadRequest(error_msg)
+            return error.message()
+
+        query = dict(serInstanceId=str(serviceId))
+
+        data = cherrypy.thread_data.db.query_col("services", query)
+
+        #serviceInfo = ServiceInfo.from_json(data)
+        return list(data)
 
 
     def __str__(self):
