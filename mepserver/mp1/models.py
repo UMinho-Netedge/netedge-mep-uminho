@@ -823,21 +823,21 @@ class BadRequest(Error):
         Error.__init__(
             self,
             type="xxx",
-            title="Bad Request",
+            title="Incorrect parameters were passed to the request",
             status=400,
             detail=str(e).split('\n')[0],
-            instance="xxx"
+            instance=cherrypy.request.path_info
         )
 
-class NotFound(Error):
-    def __init__(self, detail: str = "This resource was not found"):
+class Unauthorized(Error):
+    def __init__(self, detail: str = "Unauthorized operation"):
         Error.__init__(
             self,
-            type="xxx",
-            title="Not Found",
-            status=404,
+            type="about:blank",
+            title="Client did not submit the appropriate credentials",
+            status=401,
             detail=detail,
-            instance="xxx"
+            instance=cherrypy.request.path_info
         )
 
 class Forbidden(Error):
@@ -845,8 +845,63 @@ class Forbidden(Error):
         Error.__init__(
             self,
             type="xxx",
-            title="Forbidden",
+            title="The operation is not allowed given the current status of the resource",
             status=403,
             detail=detail,
-            instance="xxx"
+            instance=cherrypy.request.path_info
+        )
+
+class NotFound(Error):
+    def __init__(self, detail: str = "This resource was not found"):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="The URI cannot be mapped to a valid resource URI.",
+            status=404,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class Conflict(Error):
+    def __init__(self, detail : str = "This operation not allowed"):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="The operation is not allowed due to a conflict with the state of the resource",
+            status=409,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class PreconditionFailed(Error):
+    def __init__(self, detail : str = "This operation not allowed"):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="The operation is not allowed due to a conflict with the state of the resource",
+            status=412,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class URITooLong(Error):
+    def __init__(self, detail : str = "The request URI is longer than the server is able to process"):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="URI is too long",
+            status=414,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class TooManyRequests(Error):
+    def __init__(self, detail : str = "Rate limiter has been triggered"):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="Too many requests",
+            status=429,
+            detail=detail,
+            instance=cherrypy.request.path_info
         )
