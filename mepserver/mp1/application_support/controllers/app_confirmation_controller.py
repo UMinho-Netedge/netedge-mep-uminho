@@ -6,10 +6,16 @@ import cherrypy
 sys.path.append("../../")
 from mp1.models import *
 from mp1.enums import IndicationType
-
+from ratelimit import limits, RateLimitException, sleep_and_retry
 
 class ApplicationConfirmationController:
     @cherrypy.tools.json_in()
+
+    ONE_MINUTE = 60
+    MAX_CALLS_PER_MINUTE = 3
+
+    @cherrypy.tools.json_in()
+    @limits(calls=MAX_CALLS_PER_MINUTE, period=ONE_MINUTE)
     def application_confirm_ready(self, appInstanceId: str):
         """
         This method may be used by the MEC application instance to notify the MEC platform that it is up and running.

@@ -313,5 +313,58 @@ class ApplicationServicesController:
         :return: No Content or ProblemDetails
         HTTP STATUS CODE: 204, 403, 404,
         """
-        cherrypy.response.status = 204
-        return
+
+        appStatus = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query=dict(appInstanceId=appInstanceId),
+            find_one=True,
+        )
+
+        #verify if appInstanceId is in db
+        if appStatus is None:
+            error_msg = "Application %s was not found." % (appInstanceId)
+            error = NotFound(error_msg)
+            return error.message()
+        #
+
+            # if app exists and is READY
+        if appStatus['indication'] == IndicationType.READY.name:
+
+            # Checks if service already exists or if it is a new one
+            hasService = False
+            position = 0
+            for appService in appStatus["services"]:
+                if appService["serInstanceId"] == serviceId:
+                    hasService = True
+                    break
+                position+=1
+
+            # If it already exists updates service state
+            if hasService:
+                cherrypy.thread_data.db.remove(col= "services",   query=dict(serInstanceId=appService["serInstanceId"]))
+                appStatus["services"].pop(position)
+                cherrypy.thread_data.db.update(
+                    "appStatus",
+                    query=dict(appInstanceId=appInstanceId),
+                    newdata=appStatus
+                )
+                cherrypy.response.status = 204
+                return None
+
+
+
+            # If it is new, creates
+            else:
+                error_msg = "Service %s was not found." % (serviceId)
+                error = NotFound(error_msg)
+                return error.message()
+
+        #
+        # If app existis and is not READY
+        else:
+            error_msg = "Application %s is in %s state. This operation not allowed in this state." % (
+            appInstanceId, appStatus["indication"])
+            error = Forbidden(error_msg)
+            return error.message()
+
+    ##
