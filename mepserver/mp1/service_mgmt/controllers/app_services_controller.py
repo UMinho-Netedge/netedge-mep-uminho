@@ -25,7 +25,6 @@ from deepdiff import DeepDiff
 
 
 class ApplicationServicesController:
-    @url_query_validator(cls=ServicesQueryValidator)
     @json_out(cls=NestedEncoder)
     def applications_services_get(
         self,
@@ -69,62 +68,68 @@ class ApplicationServicesController:
             error_msg = "Invalid attribute(s): %s" % (str(kwargs))
             error = BadRequest(error_msg)
             return error.message()
-        
-        appInstance = cherrypy.thread_data.db.query_col(
-            "appStatus",
-            query=dict(appInstanceId=appInstanceId),
-            find_one=True,)
 
-        print(f"\n\nappStatus type: {type(appInstance)}")
-        pprint.pprint(appInstance)
-        
-        if appInstance:
-            print('appInstanceId found')
-            
-            print(f"\nappInstance['services']:\n{appInstance['services']}")
+        appReg = cherrypy.thread_data.db.query_col(
+                "appStatus",
+                query=dict(appInstanceId=appInstanceId),
+                find_one=True,)
 
-            '''
-            try:
-                query = ServiceGet(
-                            ser_instance_id=ser_instance_id,
-                            ser_name=ser_name,
-                            ser_category_id=ser_category_id,
-                            scope_of_locality=scope_of_locality,
-                            consumed_local_only=consumed_local_only,
-                            is_local=is_local)
-                query = query.to_query()
-
-                if ser_instance_id != None:
-                    try:
-                        uuid.UUID(str(ser_instance_id))
-                    except ValueError:
-                        error_msg = "'ser_instance_id' attempted with invalid format." \
-                                    " Value is required in UUID format."
-                        error = BadRequest(error_msg)
-                        return error.message()
-
-                result = cherrypy.thread_data.db.query_col("services", query)
-
-            except jsonschema.exceptions.ValidationError as e:
-                if "is not of type" in str(e.message):
-                    error_msg = "Invalid type in '"                                 \
-                                + str(camel_to_snake(e.json_path.replace("$.",""))) \
-                                + "' attribute: "+str(e.message)
-                else:
-                    error_msg = "Either 'ser_instance_id' or 'ser_name' or "        \
-                            "'ser_category_id' or none of them shall be present."
-                error = BadRequest(error_msg)
-                return error.message()
-            '''
-        else:
+        if appReg is None:
             error_msg = "Invalid 'appInstanceId'. Value not found."
-            raise BadRequest(error_msg)
-
+            error = BadRequest(error_msg)
+            return error.message()
+        elif len(appReg['services']) == 0:
+            print("len(appReg['services']) = 0")
+            return list()
         
- 
-        # Data is a pymongo cursor we first need to convert it into a json serializable object
-        # Since this query is supposed to return various valid Services we can simply convert into a list
-        #return list(result)
+        # App has services
+        inst_ids_lst = []
+        for service in appReg['services']:
+            inst_ids_lst.append(service['serInstanceId'])
+        
+        try:
+            query = ServiceGet(
+                        ser_instance_id=ser_instance_id,
+                        ser_name=ser_name,
+                        ser_category_id=ser_category_id,
+                        scope_of_locality=scope_of_locality,
+                        consumed_local_only=consumed_local_only,
+                        is_local=is_local)
+            
+            query = query.to_query()
+
+            if ser_instance_id != None:
+                try:
+                    inst_ids_arg_lst = ser_instance_id.split(",")
+                    for instance_id in inst_ids_arg_lst:
+                        uuid.UUID(str(instance_id))
+                    
+                except ValueError:
+                    error_msg = f"'ser_instance_id' attempted with invalid format with the value {instance_id}." \
+                                " Value is required in UUID format."
+                    error = BadRequest(error_msg)
+                    return error.message()
+
+                instance_ids_lst = list(set(inst_ids_arg_lst) & set(inst_ids_lst))
+                query['serInstanceId'] = instance_ids_lst
+            else:
+                query['serInstanceId'] = inst_ids_lst
+            
+            result = cherrypy.thread_data.db.query_col("services", query)
+
+        except jsonschema.exceptions.ValidationError as e:
+            if "is not of type" in str(e.message):
+                error_msg = "Invalid type in '"                                 \
+                            + str(camel_to_snake(e.json_path.replace("$.",""))) \
+                            + "' attribute: "+str(e.message)
+            else:
+                error_msg = "Either 'ser_instance_id' or 'ser_name' or "        \
+                        "'ser_category_id' or none of them shall be present."
+            error = BadRequest(error_msg)
+            return error.message()
+
+        return list(result)
+
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
