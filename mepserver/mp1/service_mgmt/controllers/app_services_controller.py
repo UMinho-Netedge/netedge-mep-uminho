@@ -317,7 +317,10 @@ class ApplicationServicesController:
 
     @json_out(cls=NestedEncoder)
     def applicaton_services_get_with_service_id(
-        self, appInstanceId: str, serviceId: str
+        self, 
+        appInstanceId: str, 
+        serviceId: str,
+        **kwargs
     ):
         """
         This method retrieves information about a mecService resource. This method is typically used in "service availability query" procedure
@@ -330,12 +333,40 @@ class ApplicationServicesController:
         :return: ServiceInfo or ProblemDetails
         HTTP STATUS CODE: 200, 400, 403, 404
         """
-        # TODO VALIDATE PARAMETERS (i.e mutually exclusive) AND CREATE QUERY
-        data = json.loads(
-            '{"serInstanceId":"string","livenessInterval":5,"_links":{"self":{"href":"http://www.google.com"},"liveness":{"href":"http://www.google.com"}},"version":"string","state":"ACTIVE","transportInfo":{"id":"string","endpoint":{"uris":["http://www.google.com"]},"name":"string","description":"string","type":"REST_HTTP","protocol":"string","version":"string","security":{"oAuth2Info":{"grantTypes":["OAUTH2_AUTHORIZATION_CODE","OAUTH2_RESOURCE_OWNER"],"tokenEndpoint":"string"}},"implSpecificInfo":{}},"serializer":"JSON","scopeOfLocality":"MEC_SYSTEM","consumedLocalOnly":true,"isLocal":true}'
-        )
-        serviceInfo = ServiceInfo.from_json(data)
-        return serviceInfo
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+
+        appReg = cherrypy.thread_data.db.query_col(
+                "appStatus",
+                query=dict(appInstanceId=appInstanceId),
+                find_one=True,)
+
+        if appReg is None:
+            error_msg = "Invalid 'appInstanceId'. Value not found."
+            error = BadRequest(error_msg)
+            return error.message()
+        
+        try:
+            uuid.UUID(str(serviceId))
+        except ValueError:
+            error_msg = "Attempted 'serviceId' with invalid format." \
+                        " Value is required in UUID format."
+            error = BadRequest(error_msg)
+            return error.message()
+
+        inst_ids_lst = []
+        for service in appReg['services']:
+            inst_ids_lst.append(service['serInstanceId'])
+        
+        if serviceId in inst_ids_lst:
+            query = dict(serInstanceId=str(serviceId),)
+            data = cherrypy.thread_data.db.query_col("services", query)
+            return list(data)
+        else:
+            return list()
+        
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)

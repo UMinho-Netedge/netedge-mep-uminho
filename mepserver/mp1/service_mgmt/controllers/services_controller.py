@@ -106,7 +106,8 @@ class ServicesController:
     def services_get_with_serviceId(
         self, 
         serviceId: str,
-        **kwargs):
+        **kwargs
+    ):
         """
         This method retrieves information about a mecService resource. This method is typically used in "service availability query" procedure
 
@@ -129,10 +130,8 @@ class ServicesController:
             return error.message()
 
         query = dict(serInstanceId=str(serviceId))
-
         data = cherrypy.thread_data.db.query_col("services", query)
 
-        #serviceInfo = ServiceInfo.from_json(data)
         return list(data)
 
 
