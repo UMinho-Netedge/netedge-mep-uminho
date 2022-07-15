@@ -74,9 +74,12 @@ class ServicesController:
 
             if ser_instance_id != None:
                 try:
-                    uuid.UUID(str(ser_instance_id))
+                    ser_inst_ids_list = ser_instance_id.split(",")
+                    for instance_id in ser_inst_ids_list:
+                        uuid.UUID(str(instance_id))
+                    
                 except ValueError:
-                    error_msg = "'ser_instance_id' attempted with invalid format." \
+                    error_msg = f"'ser_instance_id' attempted with invalid format with the value {instance_id}." \
                                 " Value is required in UUID format."
                     error = BadRequest(error_msg)
                     return error.message()

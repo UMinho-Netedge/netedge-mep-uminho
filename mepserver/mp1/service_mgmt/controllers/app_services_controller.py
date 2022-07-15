@@ -32,10 +32,11 @@ class ApplicationServicesController:
         appInstanceId: str,
         ser_instance_id: List[str] = None,
         ser_name: List[str] = None,
-        ser_category_id: List[str] = None,
-        consumed_local_only: bool = False,
-        is_local: bool = False,
+        ser_category_id: str = None,
         scope_of_locality: str = None,
+        consumed_local_only: bool = None,
+        is_local: bool = None,
+        **kwargs,
     ):
         """
         This method retrieves information about a list of mecService resources. This method is typically used in "service availability query" procedure
@@ -64,12 +65,66 @@ class ApplicationServicesController:
         :return: ProblemDetails or ServiceInfo
         HTTP STATUS CODE: 200, 400, 403, 404, 414
         """
-        # TODO VALIDATE PARAMETERS (i.e mutually exclusive) AND CREATE QUERY
-        data = json.loads(
-            '{"livenessInterval":5,"serName":"ola","serCategory":{"href":"http://www.google.com","id":"string","name":"string","version":"string"},"version":"string","state":"ACTIVE","transportInfo":{"id":"string","endpoint":{"uris":["http://www.google.com"]},"name":"string","description":"string","type":"REST_HTTP","protocol":"string","version":"string","security":{"oAuth2Info":{"grantTypes":["OAUTH2_AUTHORIZATION_CODE","OAUTH2_RESOURCE_OWNER"],"tokenEndpoint":"string"}},"implSpecificInfo":{}},"serializer":"JSON","scopeOfLocality":"MEC_SYSTEM","consumedLocalOnly":true,"isLocal":true}'
-        )
-        serviceInfo = ServiceInfo.from_json(data)
-        return serviceInfo
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+        
+        appInstance = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query=dict(appInstanceId=appInstanceId),
+            find_one=True,)
+
+        print(f"\n\nappStatus type: {type(appInstance)}")
+        pprint.pprint(appInstance)
+        
+        if appInstance:
+            print('appInstanceId found')
+            
+            print(f"\nappInstance['services']:\n{appInstance['services']}")
+
+            '''
+            try:
+                query = ServiceGet(
+                            ser_instance_id=ser_instance_id,
+                            ser_name=ser_name,
+                            ser_category_id=ser_category_id,
+                            scope_of_locality=scope_of_locality,
+                            consumed_local_only=consumed_local_only,
+                            is_local=is_local)
+                query = query.to_query()
+
+                if ser_instance_id != None:
+                    try:
+                        uuid.UUID(str(ser_instance_id))
+                    except ValueError:
+                        error_msg = "'ser_instance_id' attempted with invalid format." \
+                                    " Value is required in UUID format."
+                        error = BadRequest(error_msg)
+                        return error.message()
+
+                result = cherrypy.thread_data.db.query_col("services", query)
+
+            except jsonschema.exceptions.ValidationError as e:
+                if "is not of type" in str(e.message):
+                    error_msg = "Invalid type in '"                                 \
+                                + str(camel_to_snake(e.json_path.replace("$.",""))) \
+                                + "' attribute: "+str(e.message)
+                else:
+                    error_msg = "Either 'ser_instance_id' or 'ser_name' or "        \
+                            "'ser_category_id' or none of them shall be present."
+                error = BadRequest(error_msg)
+                return error.message()
+            '''
+        else:
+            error_msg = "Invalid 'appInstanceId'. Value not found."
+            raise BadRequest(error_msg)
+
+        
+ 
+        # Data is a pymongo cursor we first need to convert it into a json serializable object
+        # Since this query is supposed to return various valid Services we can simply convert into a list
+        #return list(result)
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
