@@ -12,19 +12,27 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-from mp1.service_mgmt.controllers.app_subscriptions_controller import (
-    ApplicationSubscriptionsController,
-)
-from mp1.service_mgmt.controllers.app_services_controller import (
-    ApplicationServicesController,
-)
-from mp1.service_mgmt.controllers.services_controller import ServicesController
-from mp1.service_mgmt.controllers.transports_controller import TransportsController
+# Service Management Controllers
+from mp1.service_mgmt.controllers.app_subscriptions_controller \
+    import (ApplicationSubscriptionsController,)
+from mp1.service_mgmt.controllers.app_services_controller \
+    import (ApplicationServicesController,)
+from mp1.service_mgmt.controllers.services_controller \
+    import (ServicesController,)
+from mp1.service_mgmt.controllers.transports_controller \
+    import (TransportsController,)
+from mp1.service_mgmt.controllers.callbacks_controller \
+    import (CallbackController,)
 
 # Application Support Controllers
-from mp1.application_support.controllers.app_confirmation_controller import (
-    ApplicationConfirmationController,
-)
+from mp1.application_support.controllers.app_traffic_rules_controller \
+    import (AppTrafficRulesController,)
+from mp1.application_support.controllers.app_confirmation_controller \
+    import (ApplicationConfirmationController,)
+from mp1.application_support.controllers.app_dns_rules_controller \
+    import (AppDnsRulesController,)
+from mp1.application_support.controllers.app_timing_controller \
+    import (AppTimingController,)
 
 from mp1.databases.database_base import DatabaseBase
 from mp1.databases.dbmongo import MongoDb
@@ -32,6 +40,8 @@ from typing import Type
 import cherrypy
 import argparse
 from mp1.utils import check_port
+from mp1.models import ProblemDetails
+import json
 
 
 def main(database: Type[DatabaseBase]):
@@ -61,12 +71,88 @@ def main(database: Type[DatabaseBase]):
         conditions=dict(method=["POST"]),
     )
 
+    #################################
+    # App Traffic Rules Controller  #
+    #################################
+    support_dispatcher.connect(
+        name="Get Traffic Rules",
+        action="traffic_rules_get",
+        controller=AppTrafficRulesController,
+        route="/applications/:appInstanceId/traffic_rules",
+        conditions=dict(method=["GET"]),
+    )
+
+    support_dispatcher.connect(
+        name="Get Traffic Rule with trafficRuleId",
+        action="traffic_rule_get_with_traffic_rule_id",
+        controller=AppTrafficRulesController,
+        route="/applications/:appInstanceId/traffic_rules/:trafficRuleId",
+        conditions=dict(method=["GET"]),
+    )
+
+    support_dispatcher.connect(
+        name="Put data into existing traffic rule",
+        action="traffic_rules_put",
+        controller=AppTrafficRulesController,
+        route="/applications/:appInstanceId/traffic_rules/:trafficRuleId",
+        conditions=dict(method=["PUT"]),
+    )
+
+    #############################
+    # App DNS Rules Controller  #
+    #############################
+    support_dispatcher.connect(
+        name="Get DNS Rules",
+        action="dns_rules_get",
+        controller=AppDnsRulesController,
+        route="/applications/:appInstanceId/dns_rules",
+        conditions=dict(method=["GET"]),
+    )
+
+    support_dispatcher.connect(
+        name="Get DNS Rule with DnsRuleId",
+        action="dns_rule_get_with_dns_rule_id",
+        controller=AppDnsRulesController,
+        route="/applications/:appInstanceId/dns_rules/:dnsRuleId",
+        conditions=dict(method=["GET"]),
+    )
+
+    support_dispatcher.connect(
+        name="Put data into existing DNS rule",
+        action="dns_rules_put",
+        controller=AppDnsRulesController,
+        route="/applications/:appInstanceId/dns_rules/:dnsRuleId",
+        conditions=dict(method=["PUT"]),
+    )
+
+    #########################
+    # App Timing Controller #
+    #########################
+    support_dispatcher.connect(
+        name="Get Timing Capabilites",
+        action="timing_capabilites_get",
+        controller=AppTimingController,
+        route="/timing/timing_caps",
+        conditions=dict(method=["GET"]),
+    )
+
+    support_dispatcher.connect(
+        name="Get Current Time",
+        action="current_time_get",
+        controller=AppTimingController,
+        route="/timing/current_time",
+        conditions=dict(method=["GET"]),
+    )
+
+
+
     #############################################
     # Application service management interface  #
     #############################################
 
     mgmt_dispatcher = cherrypy.dispatch.RoutesDispatcher()
     # Todo load from config file
+    
     #######################################
     # Application Subscription Controller #
     #######################################
@@ -178,6 +264,26 @@ def main(database: Type[DatabaseBase]):
         conditions=dict(method=["GET"]),
     )
 
+    ########################
+    # Callback Controller #
+    ########################
+    mgmt_dispatcher.connect(
+        name="Get MEC Service Liveness",
+        action="mecServiceLiveness_get",
+        controller=CallbackController,
+        route="/resource_uri_allocated_by_MEC_platform",
+        conditions=dict(method=["GET"]),
+    )
+
+    mgmt_dispatcher.connect(
+        name="Update MEC Service Liveness",
+        action="mecServiceLiveness_update",
+        controller=CallbackController,
+        route="/resource_uri_allocated_by_MEC_platform",
+        conditions=dict(method=["PATCH"]),
+    )
+
+
     cherrypy.config.update(
         {"server.socket_host": "0.0.0.0", "server.socket_port": 8080}
     )
@@ -185,6 +291,9 @@ def main(database: Type[DatabaseBase]):
     cherrypy.tree.mount(None, "/mec_app_support/v1", config=supp_conf)
     mgmt_conf = {"/": {"request.dispatch": mgmt_dispatcher}}
     cherrypy.tree.mount(None, "/mec_service_mgmt/v1", config=mgmt_conf)
+
+    # Config 404 landing page
+    cherrypy.config.update({'error_page.404': error_page_404})
 
     ######################################
     # Database Connection to all threads #
@@ -194,6 +303,19 @@ def main(database: Type[DatabaseBase]):
         cherrypy.engine.start()
     else:
         cherrypy.log("Invalid database provided to MEP. Shutting down.")
+
+
+def error_page_404(status, message, traceback, version):
+    response = cherrypy.response
+    response.headers['Content-Type'] = 'application/json'
+    errorMessage = ProblemDetails(
+        type="xxxx",
+        title="Not Found.",
+        status=404,
+        detail="URI %s cannot be mapped to a valid resource." % cherrypy.request.path_info,
+        instance="xxx"
+    )
+    return json.dumps(errorMessage.to_json())
 
 
 if __name__ == "__main__":

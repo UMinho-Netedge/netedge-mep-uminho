@@ -48,6 +48,36 @@ class MongoDb(DatabaseBase):
         data_to_be_removed = collection.delete_one(query)
         return data_to_be_removed
 
+    def update(self, col: str, query: dict, newdata: dict):
+        """
+        Updates an entry at database
+        :param col: collection
+        :param query: query to match one or more parameters of the data to be updated
+        :param indata: content to be updated
+        :return: acknowledgement of operation success, number of docs matched in query and number of modified fields.
+        example: { "acknowledged" : true, "matchedCount" : 1, "modifiedCount" : 1 }
+        """
+        collection = self.client[col]
+        # Verify if query is a string or  dict/object
+        if isinstance(query, str):
+            query = json.loads(query)
+        else:
+            # Dump the object to a string and then reload it as a dict (this deals with the nested objects)
+            # This way it works for both Object with objects and Dicts with objects
+            query = json.loads(json.dumps(query, cls=NestedEncoder))
+        # Removes the default values None to a wildcard query match in order to properly query mongodb
+        # the wildcard is {$exists:true}
+        # Adds $in operator if the query contains a list
+        query = mongodb_query_replace(query)
+
+        # Sets the data to be updated
+        data_to_update = { "$set": newdata }
+
+        # Updates and returns the UpdateResult type.
+        return collection.update_one(query, data_to_update)
+
+
+
     def query_col(
         self, col: str, query: Union[dict, object, str], fields=None, find_one=False
     ):
@@ -76,7 +106,7 @@ class MongoDb(DatabaseBase):
         # the wildcard is {$exists:true}
         # Adds $in operator if the query contains a list
         query = mongodb_query_replace(query)
-        cherrypy.log(json.dumps(query))
+        # cherrypy.log(json.dumps(query))
         # Query the collection according to query and obtain the fields specified in fields
         if find_one:
             data = collection.find_one(query, {"_id": 0} | fields)

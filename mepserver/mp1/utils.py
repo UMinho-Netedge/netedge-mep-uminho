@@ -15,12 +15,21 @@
 from json import JSONEncoder
 import json
 from enum import Enum
+
+from mp1 import models
 from .mep_exceptions import *
 import cherrypy
 from rfc3986 import is_valid_uri
 from typing import List
 import argparse
 from abc import ABC, abstractmethod
+import re
+#from .models import ProblemDetails
+
+# Camel case to snake case
+def camel_to_snake(name):
+    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
 
 
 def validate_uri(href: str) -> str:
@@ -59,6 +68,22 @@ def ignore_none_value(data: dict) -> dict:
     :rtype: dict
     """
     return {key: val for key, val in data.items() if val is not None}
+
+
+def none_to_empty_brackets(data: dict) -> dict:
+    """
+    Replace values of dictionary keys with None value for empty brackets {}
+
+    :param data: Dictionary containing data to be returned
+    :type data: dict
+    :return: Initial Dictionary but with empty brackets where value of keys were None
+    :rtype: dict
+    """
+    for key, val in data.items():
+        if val is None:
+            data[key] = {}
+
+    return data
 
 
 def mongodb_query_replace(query: dict) -> dict:
@@ -157,15 +182,15 @@ class ServicesQueryValidator(UrlQueryValidator):
         is_local: bool
         scope_of_locality: str
         """
-        # Used for scope_of_locality and is_local to transform the url query data to actual python values
+        # Used for consumed_local_only and is_local to transform the url query data to actual python values
         # if there is no value for the query we will query for both of the possible boolean values
         bool_converter = {"true": True, "false": False, None: [True, False]}
 
         ser_category_id = kwargs.get("ser_category_id")
         ser_instance_id = kwargs.get("ser_instance_id")
         ser_name = kwargs.get("ser_name")
-        # If 2 are none means only one is set and thus the mutual exclusive attribute is valid so we can move on
-        # with the validation
+        # If 2 are None it means only one is set and thus the mutual exclusive 
+        # attribute is valid so we can move on with the validation.
         # If there are 3 it means there wasn't any query parameter
         mutual_exclusive = {
             "ser_category_id": ser_category_id,
@@ -196,7 +221,8 @@ class ServicesQueryValidator(UrlQueryValidator):
                         and not scope_of_locality.isdigit()
                     ) or scope_of_locality is None:
                         return kwargs
-        raise InvalidQuery
+
+        raise InvalidQuery()
 
     @staticmethod
     def get_required_fields():
