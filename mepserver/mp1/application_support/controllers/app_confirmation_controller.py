@@ -57,9 +57,44 @@ class ApplicationConfirmationController:
 
         HTTP STATUS CODE: 204, 401, 403, 404, 409, 429
         """
-        appTerminationConfirmation = AppTerminationConfirmation.from_json(
-            cherrypy.request.json
+        # TODO notification to MEC app instance indicating it will be terminated
+        # or stopped soon. In the notification 
+
+        try:
+            appTerminationConfirmation = AppTerminationConfirmation.from_json(
+                cherrypy.request.json
+            )
+
+        except:
+            print("Exception launched!")
+
+        query_appStatus = dict(appInstanceId=appInstanceId)
+        appStatus = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query_appStatus,
+            find_one=True,
         )
+
+        if appStatus:
+            if len(appStatus['services']) > 0:
+                serv_lst = []
+                for serv in appStatus['services']:
+                    serv_lst.append(serv['serInstanceId'])
+                
+                if len(serv_lst) > 0:
+                    in_serv_lst = {}
+                    in_serv_lst['$in'] = serv_lst
+                    query_services = dict(serInstanceId=in_serv_lst)
+                    print("\nQUERYYYY")
+                    pprint.pprint(query_services)
+                    # cherrypy.thread_data.db.remove("services", query_services)
+                    cherrypy.thread_data.db.remove_many('services', query_services)
+            cherrypy.thread_data.db.remove("appStatus", query_appStatus)
+        
+        cherrypy.response.status = 204
+
+
+        '''
         if appTerminationConfirmation.operationAction in [
             OperationActionType.TERMINATING,
             OperationActionType.STOPPING,
@@ -67,7 +102,7 @@ class ApplicationConfirmationController:
             appInstanceDict = dict(appInstanceId=appInstanceId)
             # Create a dict to be saved th
             appStatusDict = dict(
-                {"indication" : appTerminationConfirmation.operationAction.name }
+                {"indication" : appTerminationConfirmation.operationAction.name}
             )
 
             # TODO CURRENTLY ONLY CHANGING APPSTATUS
@@ -90,3 +125,5 @@ class ApplicationConfirmationController:
             #     # TODO RETURN PROBLEM DETAILS
             #     pass
             # Set header to 204 - No Content
+
+        '''

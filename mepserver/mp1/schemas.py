@@ -234,7 +234,14 @@ appreadyconfirmation_schema = {
 
 appterminationconfirmation_schema = {
     "type": "object",
-    "properties": {"operationAction": {"type": "string"}},
+    "properties": {
+        "operationAction": {
+            "enum": [
+                "STOPPING",
+                "TERMINATING"
+                ]
+        }
+    },
     "required": ["operationAction"],
     "additionalProperties": False,
 }
