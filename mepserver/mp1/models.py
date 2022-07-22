@@ -899,6 +899,9 @@ class AppTerminationConfirmation:
 
     def to_json(self):
         return ignore_none_value(dict(operationAction=self.operationAction))
+    
+    def __str__(self):
+        return str(self.operationAction)
 
 
 class Error:
@@ -949,6 +952,31 @@ class Forbidden(Error):
             type="xxx",
             title="Forbidden",
             status=403,
+            detail=detail,
+            instance="xxx"
+        )
+
+class Conflict(Error):
+    def __init__(self, detail : str = "This operation cannot be executed "     \
+                                      "currently, due to a conflict with the " \
+                                      "state of the resource"):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="Conflict",
+            status=409,
+            detail=detail,
+            instance="xxx"
+        )
+
+class TooManyRequests(Error):
+    def __init__(self, detail : str = "This operation cannot be executed due " \
+                                      "excess of requests"):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="Too Many Requests",
+            status=429,
             detail=detail,
             instance="xxx"
         )

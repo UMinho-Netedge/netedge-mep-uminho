@@ -61,6 +61,9 @@ class OperationActionType(Enum):
     STOPPING = "STOPPING"
     TERMINATING = "TERMINATING"
 
+    def __str__(self):
+        return self.name
+
 
 class ChangeType(Enum):
     ADDED = "ADDED"  # New service was added
