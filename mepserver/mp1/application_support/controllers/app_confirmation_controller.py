@@ -2,14 +2,19 @@ import json
 import sys
 import jsonschema
 import cherrypy
+import time
 
 sys.path.append("../../")
 from mp1.models import *
 from mp1.enums import IndicationType
 
+ATTEMPT_RATE_LIM = 0.5
+
 
 
 class ApplicationConfirmationController:
+    attemps_dict = dict()
+
     @cherrypy.tools.json_in()
     def application_confirm_ready(self, appInstanceId: str):
         """
@@ -80,6 +85,8 @@ class ApplicationConfirmationController:
             find_one=True,
         )
 
+        # TODO differenciate 'stopping' operations from 'terminating'
+
         if appStatus:
             # MEC Platform has already notified MEC App that it will be 
             # terminated or stopped soon (AppTerminationNotification). 
@@ -87,11 +94,48 @@ class ApplicationConfirmationController:
             # is changed to "TERMINATING" or "STOPPING". This attribute must match
             # that sent in AppTerminationConfirmation raising an error otherwise.
             operationAction = str(appTerminationConfirmation.operationAction)
+
+            ######################################
+            ## Fake/induced appStatus indication. 
+            ## Just for test while AppTerminationNotification doesn't change status
+            appStatus['indication'] = "TERMINATING"
+            ######################################
+
+            '''
+            print(f"\nappStatus['indication'] {appStatus['indication']}")
+            print(f"\noperationAction {operationAction}")
+            print(f"\nappStatus['indication'] != operationAction {appStatus['indication'] != operationAction}\n")
+            '''
+
+            # In case AppTerminationNotification didn't complete is task yet
             if appStatus['indication'] != operationAction:
-                error_msg = f"There is no {operationAction.lower()} ongoing."
+                # first attempt
+                if str(appInstanceId) not in ApplicationConfirmationController.attemps_dict.keys():
+                    ApplicationConfirmationController.attemps_dict[str(appInstanceId)] = (1, time.time())
+                else:
+                    ApplicationConfirmationController.attemps_dict[str(appInstanceId)].first += 1
+                    app_attmpt_info = ApplicationConfirmationController.attemps_dict[str(appInstanceId)]
+                    # (no. of attempts to this app) / (seconds passed since first attempt)
+                    rate = app_attmpt_info.first / (time.time() - app_attmpt_info.second)
+                    if rate >= ATTEMPT_RATE_LIM:
+                        error_msg = f"Too many requests have been sent. Try again soon."
+                        error = TooManyRequests(error_msg)
+                        return error.message()
+
+                error_msg = f"There is no {operationAction.lower()} operation ongoing."
                 error = Conflict(error_msg)
                 return error.message()
 
+            # AppTerminationNotification completed is task
+            # first attempt
+            if str(appInstanceId) not in ApplicationConfirmationController.attemps_dict.keys():
+                ApplicationConfirmationController.attemps_dict[str(appInstanceId)] = (1, time.time())
+            # next attempts
+            else:
+                error_msg = f"{operationAction.lower()} is already being handled."
+                error = TooManyRequests(error_msg)
+                return error.message()
+            
             if len(appStatus['services']) > 0:
                 # seek for app services
                 serv_lst = []
@@ -119,6 +163,8 @@ class ApplicationConfirmationController:
                     cherrypy.thread_data.db.remove_many('services', query_services)
             # app removal from appStatus collection
             cherrypy.thread_data.db.remove("appStatus", query_appStatus)
+            # remove from class dictionary after removal from db
+            del ApplicationConfirmationController.attemps_dict[str(appInstanceId)]
         else:
             error_msg = "The application instance resource is not instantiated."
             error = Conflict(error_msg)
