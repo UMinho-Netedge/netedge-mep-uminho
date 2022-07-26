@@ -16,19 +16,22 @@ import sys
 
 sys.path.append("../../")
 from mp1.models import *
+import jsonschema
+import uuid
 
 
 class ServicesController:
-    @url_query_validator(cls=ServicesQueryValidator)
+    #@url_query_validator(cls=ServicesQueryValidator)
     @json_out(cls=NestedEncoder)
     def services_get(
         self,
         ser_instance_id: List[str] = None,
         ser_name: List[str] = None,
-        ser_category_id: List[str] = None,
-        consumed_local_only: bool = False,
-        is_local: bool = False,
+        ser_category_id: str = None,
         scope_of_locality: str = None,
+        consumed_local_only: bool = None,
+        is_local: bool = None,
+        **kwargs,
     ):
         """
         This method retrieves information about a list of mecService resources. This method is typically used in "service availability query" procedure
@@ -47,26 +50,64 @@ class ServicesController:
         :param scope_of_locality: A MEC application instance may use scope_of_locality as an input parameter to query the availability of a list of MEC service instances with a certain scope of locality.
         :type scope_of_locality: String
 
-        :note: ser_name, ser_category_id, ser_instance_id are mutually-exclusive only one should be used
+        :note: ser_name, ser_category_id, ser_instance_id are mutually-exclusive only one should be used or none
 
         :return: ServiceInfo or ProblemDetails
         HTTP STATUS CODE: 200, 400, 403, 404, 414
         """
-        query = dict(
-            serInstanceId=ser_instance_id,
-            serName=ser_name,
-            serCategory=dict(id=ser_category_id),
-            consumedLocalOnly=consumed_local_only,
-            isLocal=is_local,
-            scopeOfLocality=scope_of_locality,
-        )
-        data = cherrypy.thread_data.db.query_col("services", query)
+        
+        #  If kwargs isn't None the get request was made with invalid atributes
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+            
+        try:
+            query = ServiceGet(
+                        ser_instance_id=ser_instance_id,
+                        ser_name=ser_name,
+                        ser_category_id=ser_category_id,
+                        scope_of_locality=scope_of_locality,
+                        consumed_local_only=consumed_local_only,
+                        is_local=is_local)
+            query = query.to_query()
+
+            if ser_instance_id != None:
+                try:
+                    ser_inst_ids_list = ser_instance_id.split(",")
+                    for instance_id in ser_inst_ids_list:
+                        uuid.UUID(str(instance_id))
+                    
+                except ValueError:
+                    error_msg = f"'ser_instance_id' attempted with invalid format with the value {instance_id}." \
+                                " Value is required in UUID format."
+                    error = BadRequest(error_msg)
+                    return error.message()
+
+            result = cherrypy.thread_data.db.query_col("services", query)
+
+        except jsonschema.exceptions.ValidationError as e:
+            if "is not of type" in str(e.message):
+                error_msg = "Invalid type in '"                                 \
+                            + str(camel_to_snake(e.json_path.replace("$.",""))) \
+                            + "' attribute: "+str(e.message)
+            else:
+                error_msg = "Either 'ser_instance_id' or 'ser_name' or "        \
+                        "'ser_category_id' or none of them shall be present."
+            error = BadRequest(error_msg)
+            return error.message()
+ 
         # Data is a pymongo cursor we first need to convert it into a json serializable object
         # Since this query is supposed to return various valid Services we can simply convert into a list
-        return list(data)
+        return list(result)
+        
 
     @json_out(cls=NestedEncoder)
-    def services_get_with_serviceId(self, serviceId: str):
+    def services_get_with_serviceId(
+        self, 
+        serviceId: str,
+        **kwargs
+    ):
         """
         This method retrieves information about a mecService resource. This method is typically used in "service availability query" procedure
 
@@ -75,9 +116,29 @@ class ServicesController:
 
         :return: ServiceInfo or ProblemDetails
         """
-        # TODO VALIDATE PARAMETERS (i.e mutually exclusive) AND CREATE QUERY
-        data = json.loads(
-            '{"serName":"working","livenessInterval":5,"_links":{"self":{"href":"http://www.google.com"},"liveness":{"href":"http://www.google.com"}},"version":"string","state":"ACTIVE","transportInfo":{"id":"string","endpoint":{"uris":["http://www.google.com"]},"name":"string","description":"string","type":"REST_HTTP","protocol":"string","version":"string","security":{"oAuth2Info":{"grantTypes":["OAUTH2_AUTHORIZATION_CODE"],"tokenEndpoint":"string"}},"implSpecificInfo":{}},"serializer":"JSON","scopeOfLocality":"MEC_SYSTEM","consumedLocalOnly":true,"isLocal":true}'
-        )
-        serviceInfo = ServiceInfo.from_json(data)
-        return serviceInfo
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+
+        try:
+            uuid.UUID(str(serviceId))
+        except ValueError:
+            error_msg = "Attempted 'serviceId' with invalid format." \
+                        " Value is required in UUID format."
+            error = BadRequest(error_msg)
+            return error.message()
+
+        query = dict(serInstanceId=str(serviceId))
+        data = cherrypy.thread_data.db.query_col("services", query)
+
+        return list(data)
+
+
+    def __str__(self):
+        return "\nser_instance_id: "+str(self.ser_instance_id)+ \
+                "\nser_name: "+str(self.ser_name)+ \
+                "\nser_category_id: "+str(self.ser_category_id)+ \
+                "\nscope_of_locality: "+str(self.scope_of_locality)+ \
+                "\nconsumed_local_only: "+str(self.consumed_local_only)+ \
+                "\nis_local: "+str(self.is_local)

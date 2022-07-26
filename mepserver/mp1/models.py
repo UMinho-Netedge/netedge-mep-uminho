@@ -21,6 +21,9 @@ from .utils import *
 from .enums import *
 from .mep_exceptions import *
 from .schemas import *
+from uuid import UUID
+
+import pprint # Dictionaries pretty print (for testing)
 
 ####################################
 # Classes used by both support and #
@@ -761,6 +764,105 @@ class ServiceInfo:
                 for key, val in list(tmp_ret.items())
             ]
         }
+
+
+class ServiceGet:
+    def __init__(
+        self,
+        ser_instance_id: List[str] = None,
+        ser_name: List[str] = None,
+        ser_category_id: str = '',
+        scope_of_locality: LocalityType = LocalityType.MEC_HOST,
+        consumed_local_only: bool = None,
+        is_local: bool = None,
+    ):
+        """
+        :param ser_instance_id: A MEC application instance may use multiple ser_instance_ids as an input parameter to query the availability of a list of MEC service instances. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_instance_id: List[String]
+        :param ser_name: A MEC application instance may use multiple ser_names as an input parameter to query the availability of a list of MEC service instances. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_name: List[String]
+        :param ser_category_id: A MEC application instance may use ser_category_id as an input parameter to query the availability of a list of MEC service instances in a serCategory. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_category_id: String
+        :param consumed_local_only: Indicate whether the service can only be consumed by the MEC applications located in the same locality (as defined by scopeOfLocality) as this service instance.
+        :type consumed_local_only: boolean
+        :param is_local: Indicate whether the service is located in the same locality (as defined by scopeOfLocality) as the consuming MEC application.
+        :type is_local: boolean
+        :param scope_of_locality: A MEC application instance may use scope_of_locality as an input parameter to query the availability of a list of MEC service instances with a certain scope of locality.
+        :type scope_of_locality: String
+
+        :note: ser_name, ser_category_id, ser_instance_id are mutually-exclusive only one should be used or none
+
+        Raises ValidationError when invalid type is provided or mutual-exclusion failed
+        Section 8.2.3.3.1
+        """
+        self.ser_instance_id = ser_instance_id
+        self.ser_name = ser_name
+        self.ser_category_id = ser_category_id
+        self.scope_of_locality = scope_of_locality
+        self.consumed_local_only = consumed_local_only
+        self.is_local = is_local
+
+    def __str__(self):
+        return "\nser_instance_id: "+str(self.ser_instance_id)+ \
+                "\nser_name: "+str(self.ser_name)+ \
+                "\nser_category_id: "+str(self.ser_category_id)+ \
+                "\nscope_of_locality: "+str(self.scope_of_locality)+ \
+                "\nconsumed_local_only: "+str(self.consumed_local_only)+ \
+                "\nis_local: "+str(self.is_local)
+    
+    def to_json(self):
+        return ignore_none_value(
+                    dict(
+                        ser_instance_id=self.ser_instance_id,
+                        ser_name=self.ser_name,
+                        ser_category_id=self.ser_category_id,
+                        scope_of_locality=self.scope_of_locality,
+                        consumed_local_only=self.consumed_local_only,
+                        is_local=self.is_local
+                    )
+                )
+
+    def to_query(self):
+
+        #bool_converter = {"true": True, "false": False, None: None}
+        
+        def bool_conv(att_value: str):
+            if att_value == "true":
+                return True
+            if att_value == "false":
+                return False
+            return att_value
+
+        query = dict(
+            serInstanceId=self.ser_instance_id,
+            serName=self.ser_name,
+            serCategory=self.ser_category_id,
+            scopeOfLocality=self.scope_of_locality,
+            consumedLocalOnly=bool_conv(self.consumed_local_only),
+            isLocal=bool_conv(self.is_local)
+        )
+
+        query = ignore_none_value(query)
+        validate(instance=query, schema=service_get_schema)
+
+        # Search for 'id' in the nested structure serCategory
+        if self.ser_category_id is not None:
+            query['serCategory.id'] = query.pop('serCategory')
+        
+        if self.ser_instance_id is not None:
+            query['serInstanceId'] = query['serInstanceId'].split(",")
+        if self.ser_name is not None:
+            query['serName'] = query['serName'].split(",")
+
+        return query
+
+    def __str__(self):
+        return "\nser_instance_id: "+str(self.ser_instance_id)+ \
+                "\nser_name: "+str(self.ser_name)+ \
+                "\nser_category_id: "+str(self.ser_category_id)+ \
+                "\nscope_of_locality: "+str(self.scope_of_locality)+ \
+                "\nconsumed_local_only: "+str(self.consumed_local_only)+ \
+                "\nis_local: "+str(self.is_local)
 
 
 ####################################

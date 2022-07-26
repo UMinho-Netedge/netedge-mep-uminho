@@ -140,6 +140,7 @@ endpointinfo_address_schema = {
     "required": ["host", "port"],
     "additionalProperties": False,
 }
+
 endpointinfo_addresses_schema = {
     "type": "object",
     "properties": {
@@ -235,5 +236,38 @@ appterminationconfirmation_schema = {
     "type": "object",
     "properties": {"operationAction": {"type": "string"}},
     "required": ["operationAction"],
+    "additionalProperties": False,
+}
+
+service_get_schema = {
+    "type": "object",
+    "properties": {
+        "serInstanceId": {"type": "string"},
+        "serName": {"type": "string"},
+        "serCategory": {"type": "string"}, #just the ser_category_id
+        "scopeOfLocality": {
+            "enum": [
+                "MEC_SYSTEM",
+                "MEC_HOST",
+                "NFVI_POP",
+                "ZONE",
+                "ZONE_GROUP",
+                "NFVI_NODE",
+            ]
+        },
+        "consumedLocalOnly": {"type": "boolean"},
+        "isLocal": {"type": "boolean"} 
+    },
+    "dependentSchemas": {
+        "serInstanceId": {
+            "not": {"required": ["serName"]}
+            },
+        "serName": {
+            "not": {"required": ["serCategory"]}
+            },
+        "serCategory": {
+            "not": {"required": ["serInstanceId"]}
+            }
+    },
     "additionalProperties": False,
 }
