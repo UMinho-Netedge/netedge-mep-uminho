@@ -21,6 +21,9 @@ from .utils import *
 from .enums import *
 from .mep_exceptions import *
 from .schemas import *
+from uuid import UUID
+
+import pprint # Dictionaries pretty print (for testing)
 
 ####################################
 # Classes used by both support and #
@@ -628,18 +631,19 @@ class TransportInfo:
 class ServiceInfo:
     def __init__(
         self,
+        serName: str,
         version: str,
         state: ServiceState,
-        transportInfo: TransportInfo,
         serializer: SerializerType,
-        livenessInterval: int,
-        _links: Links = None,
-        consumedLocalOnly: bool = True,
-        isLocal: bool = True,
-        scopeOfLocality: LocalityType = LocalityType.MEC_HOST,
         serInstanceId: str = None,
-        serName: str = None,
-        serCategory: str = None,
+        serCategory: CategoryRef = None,
+        transportId: str = None,
+        transportInfo: TransportInfo = None,
+        scopeOfLocality: LocalityType = LocalityType.MEC_HOST,
+        consumedLocalOnly: bool = True,
+        isLocal: bool = True,        
+        livenessInterval: int = None,
+        _links: Links = None,
     ):
         """
         :param serInstanceId: Identifiers of service instances about which to report events
@@ -675,13 +679,14 @@ class ServiceInfo:
         self.serCategory = serCategory
         self.version = version
         self.state = state
+        self.transportId = transportId
         self.transportInfo = transportInfo
         self.serializer = serializer
         self.scopeOfLocality = scopeOfLocality
         self.consumedLocalOnly = consumedLocalOnly
         self.isLocal = isLocal
-        self._links = _links
         self.livenessInterval = livenessInterval
+        self._links = _links
 
     @staticmethod
     def from_json(data: dict) -> ServiceInfo:
@@ -761,6 +766,105 @@ class ServiceInfo:
         }
 
 
+class ServiceGet:
+    def __init__(
+        self,
+        ser_instance_id: List[str] = None,
+        ser_name: List[str] = None,
+        ser_category_id: str = '',
+        scope_of_locality: LocalityType = LocalityType.MEC_HOST,
+        consumed_local_only: bool = None,
+        is_local: bool = None,
+    ):
+        """
+        :param ser_instance_id: A MEC application instance may use multiple ser_instance_ids as an input parameter to query the availability of a list of MEC service instances. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_instance_id: List[String]
+        :param ser_name: A MEC application instance may use multiple ser_names as an input parameter to query the availability of a list of MEC service instances. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_name: List[String]
+        :param ser_category_id: A MEC application instance may use ser_category_id as an input parameter to query the availability of a list of MEC service instances in a serCategory. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_category_id: String
+        :param consumed_local_only: Indicate whether the service can only be consumed by the MEC applications located in the same locality (as defined by scopeOfLocality) as this service instance.
+        :type consumed_local_only: boolean
+        :param is_local: Indicate whether the service is located in the same locality (as defined by scopeOfLocality) as the consuming MEC application.
+        :type is_local: boolean
+        :param scope_of_locality: A MEC application instance may use scope_of_locality as an input parameter to query the availability of a list of MEC service instances with a certain scope of locality.
+        :type scope_of_locality: String
+
+        :note: ser_name, ser_category_id, ser_instance_id are mutually-exclusive only one should be used or none
+
+        Raises ValidationError when invalid type is provided or mutual-exclusion failed
+        Section 8.2.3.3.1
+        """
+        self.ser_instance_id = ser_instance_id
+        self.ser_name = ser_name
+        self.ser_category_id = ser_category_id
+        self.scope_of_locality = scope_of_locality
+        self.consumed_local_only = consumed_local_only
+        self.is_local = is_local
+
+    def __str__(self):
+        return "\nser_instance_id: "+str(self.ser_instance_id)+ \
+                "\nser_name: "+str(self.ser_name)+ \
+                "\nser_category_id: "+str(self.ser_category_id)+ \
+                "\nscope_of_locality: "+str(self.scope_of_locality)+ \
+                "\nconsumed_local_only: "+str(self.consumed_local_only)+ \
+                "\nis_local: "+str(self.is_local)
+    
+    def to_json(self):
+        return ignore_none_value(
+                    dict(
+                        ser_instance_id=self.ser_instance_id,
+                        ser_name=self.ser_name,
+                        ser_category_id=self.ser_category_id,
+                        scope_of_locality=self.scope_of_locality,
+                        consumed_local_only=self.consumed_local_only,
+                        is_local=self.is_local
+                    )
+                )
+
+    def to_query(self):
+
+        #bool_converter = {"true": True, "false": False, None: None}
+        
+        def bool_conv(att_value: str):
+            if att_value == "true":
+                return True
+            if att_value == "false":
+                return False
+            return att_value
+
+        query = dict(
+            serInstanceId=self.ser_instance_id,
+            serName=self.ser_name,
+            serCategory=self.ser_category_id,
+            scopeOfLocality=self.scope_of_locality,
+            consumedLocalOnly=bool_conv(self.consumed_local_only),
+            isLocal=bool_conv(self.is_local)
+        )
+
+        query = ignore_none_value(query)
+        validate(instance=query, schema=service_get_schema)
+
+        # Search for 'id' in the nested structure serCategory
+        if self.ser_category_id is not None:
+            query['serCategory.id'] = query.pop('serCategory')
+        
+        if self.ser_instance_id is not None:
+            query['serInstanceId'] = query['serInstanceId'].split(",")
+        if self.ser_name is not None:
+            query['serName'] = query['serName'].split(",")
+
+        return query
+
+    def __str__(self):
+        return "\nser_instance_id: "+str(self.ser_instance_id)+ \
+                "\nser_name: "+str(self.ser_name)+ \
+                "\nser_category_id: "+str(self.ser_category_id)+ \
+                "\nscope_of_locality: "+str(self.scope_of_locality)+ \
+                "\nconsumed_local_only: "+str(self.consumed_local_only)+ \
+                "\nis_local: "+str(self.is_local)
+
+
 ####################################
 # Classes used by support api      #
 ####################################
@@ -797,3 +901,111 @@ class AppTerminationConfirmation:
 
     def to_json(self):
         return ignore_none_value(dict(operationAction=self.operationAction))
+
+
+class Error:
+    def __init__(self, type: str, title: str, status: int, detail: str, instance: str):
+        self.type = type
+        self.title = title
+        self.status = status
+        self.detail = detail
+        self.instance = instance
+
+    def message(self):
+        cherrypy.response.status = self.status
+
+        return ProblemDetails(
+            type=self.type,
+            title=self.title,
+            status=self.status,
+            detail=self.detail,
+            instance=self.instance
+        )
+
+class BadRequest(Error):
+    def __init__(self, e: Exception):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="Incorrect parameters were passed to the request",
+            status=400,
+            detail=str(e).split('\n')[0],
+            instance=cherrypy.request.path_info
+        )
+
+class Unauthorized(Error):
+    def __init__(self, detail: str = "Unauthorized operation"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="Client did not submit the appropriate credentials",
+            status=401,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class Forbidden(Error):
+    def __init__(self, detail : str = "This operation not allowed"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="The operation is not allowed given the current status of the resource",
+            status=403,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class NotFound(Error):
+    def __init__(self, detail: str = "This resource was not found"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="The URI cannot be mapped to a valid resource URI.",
+            status=404,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class Conflict(Error):
+    def __init__(self, detail : str = "This operation not allowed"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="The operation is not allowed due to a conflict with the state of the resource",
+            status=409,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class PreconditionFailed(Error):
+    def __init__(self, detail : str = "This operation not allowed"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="The operation is not allowed due to a conflict with the state of the resource",
+            status=412,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class URITooLong(Error):
+    def __init__(self, detail : str = "The request URI is longer than the server is able to process"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="URI is too long",
+            status=414,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class TooManyRequests(Error):
+    def __init__(self, detail : str = "Rate limiter has been triggered"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="Too many requests",
+            status=429,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
