@@ -85,6 +85,7 @@ class ServicesController:
                     return error.message()
 
             result = cherrypy.thread_data.db.query_col("services", query)
+            result = list(result)
 
         except jsonschema.exceptions.ValidationError as e:
             if "is not of type" in str(e.message):
@@ -96,15 +97,46 @@ class ServicesController:
                         "'ser_category_id' or none of them shall be present."
             error = BadRequest(error_msg)
             return error.message()
- 
+
+        # Apps which state IS NOT READY
+        appNotReady = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query={"$or": [{"indication": "STOPPING"}, {"indication": "TERMINATING"}]},)
+
+        appNotReady = list(appNotReady)
+        if appNotReady:
+            # create a list of serInstanceIds from not ready apps
+            servs_to_del = []
+            for app in appNotReady:
+                for service in app["services"]:
+                    servs_to_del.append(service["serInstanceId"])
+            
+            print(f"servs_to_del:\n{servs_to_del}")
+            # remove them from the result (list of all services)
+            res = []
+            for idx, service_info in enumerate(result):
+                '''
+                print(f"result len: {len(result)}")
+                print(f"enumerate len: {len(enumerate(result))}")
+                print(f"idx: {idx}")
+                print(f"service_info:\n{service_info}")
+                
+                if service_info["serInstanceId"] in servs_to_del:
+                    del res[idx]
+                    print("Hurray. I found one service to delete.")
+                '''
+                if service_info["serInstanceId"] not in servs_to_del:
+                    res.append(service_info)
+            print(f"result:\n{res}")
+            return res
         # Data is a pymongo cursor we first need to convert it into a json serializable object
         # Since this query is supposed to return various valid Services we can simply convert into a list
-        return list(result)
+        return result
         
 
     @json_out(cls=NestedEncoder)
     def services_get_with_serviceId(
-        self, 
+        self,
         serviceId: str,
         **kwargs
     ):
@@ -131,8 +163,24 @@ class ServicesController:
 
         query = dict(serInstanceId=str(serviceId))
         data = cherrypy.thread_data.db.query_col("services", query)
+        result = list(data)
 
-        return list(data)
+        # Apps which state IS NOT READY
+        appNotReady = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query={"$or": [{"indication": "STOPPING"}, {"indication": "TERMINATING"}]},)
+        
+        appNotReady = list(appNotReady)
+        if appNotReady:
+            for app in appNotReady:
+                for service in app["services"]:
+                    if service["serInstanceId"] == serviceId:
+                        #return list()
+                        error_msg = "Service producing app isn't in READY state."
+                        error = Forbidden(error_msg)
+                        return error.message()
+
+        return result
 
 
     def __str__(self):

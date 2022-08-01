@@ -74,12 +74,18 @@ class ApplicationServicesController:
                 query=dict(appInstanceId=appInstanceId),
                 find_one=True,)
 
+        # if app doesn't exist in db
         if appReg is None:
             error_msg = "Invalid 'appInstanceId'. Value not found."
             error = BadRequest(error_msg)
             return error.message()
+        # if app exists but is not READY
+        elif appReg["indication"] != IndicationType.READY.name:
+            error_msg = "App %s isn't in READY state." % (appInstanceId)
+            error = Forbidden(error_msg)
+            return error.message()
+        # if app exists, is ready, but with no services
         elif len(appReg['services']) == 0:
-            print("len(appReg['services']) = 0")
             return list()
         
         # App has services
@@ -343,9 +349,15 @@ class ApplicationServicesController:
                 query=dict(appInstanceId=appInstanceId),
                 find_one=True,)
 
+        # if app doesn't exist in db
         if appReg is None:
             error_msg = "Invalid 'appInstanceId'. Value not found."
             error = BadRequest(error_msg)
+            return error.message()
+        # if app exists but is not READY
+        elif appReg["indication"] != IndicationType.READY.name:
+            error_msg = "App %s state isn't READY." % (appInstanceId)
+            error = Forbidden(error_msg)
             return error.message()
         
         try:
@@ -354,7 +366,7 @@ class ApplicationServicesController:
             error_msg = "Attempted 'serviceId' with invalid format." \
                         " Value is required in UUID format."
             error = BadRequest(error_msg)
-            return error.message()
+            return error.message() 
 
         inst_ids_lst = []
         for service in appReg['services']:
