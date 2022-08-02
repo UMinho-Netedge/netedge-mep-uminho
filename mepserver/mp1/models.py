@@ -21,6 +21,10 @@ from .utils import *
 from .enums import *
 from .mep_exceptions import *
 from .schemas import *
+from uuid import UUID
+
+import pprint  # Dictionaries pretty print (for testing)
+
 
 ####################################
 # Classes used by both support and #
@@ -29,9 +33,7 @@ from .schemas import *
 class LinkType:
     """
     This type represents a type of link and may be referenced from data structures.
-
     Raises TypeError
-
     Section 6.3.2 - MEC 011
     """
 
@@ -73,21 +75,19 @@ class ProblemDetails:
 class Subscription:
     """
     The MEC application instance's subscriptions.
-
     Section 6.2.2
     """
 
     def __init__(
-        self,
-        href: str,
-        subscriptionType: Union[str, None] = "SerAvailabilityNotificationSubscription",
+            self,
+            href: str,
+            subscriptionType: Union[str, None] = "SerAvailabilityNotificationSubscription",
     ):
         """
         :param href: URI referring to the subscription. (isn't a real URI but the path to something in our MEP)
         :type href: str
         :param subscriptionType: Type of the subscription.
         :type subscriptionType: str
-
         Raises TypeError
         """
         self.href = href
@@ -102,15 +102,14 @@ class Subscription:
 class Links:
     """
     Internal structure to be compliant with MEC 011
-
     Section 6.2.2
     """
 
     def __init__(
-        self,
-        _self: LinkType = None,
-        subscriptions: List[Subscription] = None,
-        liveness: LinkType = None,
+            self,
+            _self: LinkType = None,
+            subscriptions: List[Subscription] = None,
+            liveness: LinkType = None,
     ):
         self.self = _self
         self.subscriptions = subscriptions
@@ -144,7 +143,6 @@ class MecServiceMgmtApiSubscriptionLinkList:
     """
     This type represents a list of links related to currently existing subscriptions for a MEC application instance.
     This information is returned when sending a request to receive current subscriptions.
-
     Section 6.2.2 - MEC 011
     """
 
@@ -166,7 +164,6 @@ class CategoryRef:
     def __init__(self, href: str, id: str, name: str, version: str):
         """
         This type represents the category reference.
-
         :param href: Reference of the catalogue.
         :type href: String
         :param id: Unique identifier of the category.
@@ -175,9 +172,7 @@ class CategoryRef:
         :type name: String
         :param version: Category version.
         :type version: String
-
         Raises TypeError
-
         Section 8.1.5.2
         """
         self.href = validate_uri(href)
@@ -192,12 +187,12 @@ class CategoryRef:
 
 class FilteringCriteria:
     def __init__(
-        self,
-        states: List[ServiceState],
-        isLocal: bool,
-        serInstanceIds: List[str] = None,
-        serNames: List[str] = None,
-        serCategories: List[CategoryRef] = None,
+            self,
+            states: List[ServiceState],
+            isLocal: bool,
+            serInstanceIds: List[str] = None,
+            serNames: List[str] = None,
+            serCategories: List[CategoryRef] = None,
     ):
         """
         :param states: States of the services about which to report events. If the event is a state change, this filter represents the state after the change
@@ -210,11 +205,9 @@ class FilteringCriteria:
         :type serNames: String
         :param serCategories: Categories of services about which to report events.
         :type serCategories: List of CategoryRef
-
         Note serCategories, serInstanceId and serNames are mutually-exclusive
         Raises KeyError when Invalid Enum is provided
         Raises InvalidIdentifier if no identifier is specified
-
         Section 8.1.3.2
         """
         self.states = states
@@ -282,13 +275,12 @@ class FilteringCriteria:
 
 class ServiceAvailabilityNotification:
     def __init__(
-        self,
-        serviceReferences: List[ServiceReferences],
-        _links: Subscription,
-        notificationType: str = "SerAvailabilityNotificationSubscription",
+            self,
+            serviceReferences: List[ServiceReferences],
+            _links: Subscription,
+            notificationType: str = "SerAvailabilityNotificationSubscription",
     ):
         """
-
         :param serviceReferences: List of links to services whose availability has changed.
         :type serviceReferences: List of ServiceReferences
         :param _links: Object containing hyperlinks related to the resource.
@@ -296,7 +288,6 @@ class ServiceAvailabilityNotification:
         :type _links: Subscription
         :param notificationType: hall be set to "SerAvailabilityNotification"
         :type notificationType: String
-
         Section 8.1.4.2
         """
         self.notificationType = notificationType
@@ -305,12 +296,12 @@ class ServiceAvailabilityNotification:
 
     class ServiceReferences:
         def __init__(
-            self,
-            link: LinkType,
-            serInstanceId: str,
-            state: ServiceState,
-            serName: str,
-            changeType: ChangeType,
+                self,
+                link: LinkType,
+                serInstanceId: str,
+                state: ServiceState,
+                serName: str,
+                changeType: ChangeType,
         ):
             self.link = link
             self.serInstanceId = serInstanceId
@@ -350,7 +341,7 @@ class ServiceAvailabilityNotification:
 
     @staticmethod
     def from_json_service_list(
-        data: list[dict], changeType: str, subscription: str = None
+            data: list[dict], changeType: str, subscription: str = None
     ):
         """
         :param data: List containing all services (in json form) that match the filtering criteria
@@ -389,22 +380,19 @@ class ServiceAvailabilityNotification:
 
 class SerAvailabilityNotificationSubscription:
     def __init__(
-        self,
-        callbackReference: str,
-        _links: Links = None,
-        filteringCriteria: FilteringCriteria = None,
+            self,
+            callbackReference: str,
+            _links: Links = None,
+            filteringCriteria: FilteringCriteria = None,
     ):
         """
-
         :param callbackReference: URI selected by the MEC application instance to receive notifications on the subscribed MEC service availability information. This shall be included in both the request and the response.".
         :type callbackReference: String
         :param _links: Object containing hyperlinks related to the resource. This shall only be included in the HTTP responses.
         :type _links: str (String is validated to be a correct URI)
         :param filteringCriteria: Filtering criteria to match services for which events are requested to be reported. If absent, matches all services. All child attributes are combined with the logical "AND" operation.
         :type filteringCriteria: FilteringCriteria
-
         Raises TypeError
-
         Section 8.1.3.2
         """
         self.callbackReference = validate_uri(callbackReference)
@@ -448,15 +436,12 @@ class OAuth2Info:
     def __init__(self, grantTypes: List[GrantTypes], tokenEndpoint: str):
         """
         This type represents security information related to a transport.
-
         :param grantTypes: List of supported OAuth 2.0 grant types
         :type grantTypes: List[GrantTypes] Min size 1 Max Size 4
         :param tokenEndpoint: The Token Endpoint
         :type tokenEndpoint: String
-
         :Note: grantTypes can be between 1 and 4
         :Note: tokenEndpoint seems required in swagger but isn't in MEC011 Specification
-
         Section 8.1.5.4
         Raises InvalidGrantType
         """
@@ -481,7 +466,6 @@ class SecurityInfo:
     def __init__(self, oAuth2Info: OAuth2Info):
         """
         :param oAuth2Info: Parameters related to use of OAuth 2.0.
-
         Section 8.1.5.4
         """
         self.oAuth2Info = oAuth2Info
@@ -505,7 +489,6 @@ class EndPointInfo:
             """
             :param uri: Entry point information of the service as string, formatted according to URI syntax
             :type uri: String
-
             Raises TypeError
             """
             self.uris = [validate_uri(uri) for uri in uris]
@@ -559,16 +542,16 @@ class EndPointInfo:
 
 class TransportInfo:
     def __init__(
-        self,
-        id: str,
-        name: str,
-        type: TransportType,
-        version: str,
-        endpoint: [EndPointInfo.Addresses, EndPointInfo.Uris, EndPointInfo.Alternative],
-        security: SecurityInfo,
-        description: str = "",
-        implSpecificInfo: str = "",
-        protocol: str = "HTTP",
+            self,
+            id: str,
+            name: str,
+            type: TransportType,
+            version: str,
+            endpoint: [EndPointInfo.Addresses, EndPointInfo.Uris, EndPointInfo.Alternative],
+            security: SecurityInfo,
+            description: str = "",
+            implSpecificInfo: str = "",
+            protocol: str = "HTTP",
     ):
         """
         :param id: The identifier of this transport.
@@ -589,7 +572,6 @@ class TransportInfo:
         :type protocol: String
         :param description: Human-readable description of this transport.
         :type description: String
-
         Section 8.1.2.3
         """
         self.id = id
@@ -627,19 +609,19 @@ class TransportInfo:
 
 class ServiceInfo:
     def __init__(
-        self,
-        version: str,
-        state: ServiceState,
-        transportInfo: TransportInfo,
-        serializer: SerializerType,
-        livenessInterval: int,
-        _links: Links = None,
-        consumedLocalOnly: bool = True,
-        isLocal: bool = True,
-        scopeOfLocality: LocalityType = LocalityType.MEC_HOST,
-        serInstanceId: str = None,
-        serName: str = None,
-        serCategory: str = None,
+            self,
+            version: str,
+            state: ServiceState,
+            transportInfo: TransportInfo,
+            serializer: SerializerType,
+            livenessInterval: int,
+            _links: Links = None,
+            consumedLocalOnly: bool = True,
+            isLocal: bool = True,
+            scopeOfLocality: LocalityType = LocalityType.MEC_HOST,
+            serInstanceId: str = None,
+            serName: str = None,
+            serCategory: str = None,
     ):
         """
         :param serInstanceId: Identifiers of service instances about which to report events
@@ -667,7 +649,6 @@ class ServiceInfo:
         :param livenessInterval: Interval (in seconds) between two consecutive "heartbeat" messages
         :type livenessInterval: Integer
         Note serCategories, serInstanceId and serNames are mutually-exclusive
-
         Section 8.1.2.2
         """
         self.serInstanceId = serInstanceId
@@ -734,7 +715,6 @@ class ServiceInfo:
         Used with the $or mongodb operator which requires a list of dictionaries for each "or" operation
         Example we want to get an object that can have serName="a" or serInstanceId="b"
         {$or:[{"serName":a},{"serInstanceId":"b"}]}
-
         Due to serInstancesIds,serNames,serCategories and states being addressable by various values we transform
         them into a list so that we can use the $in operator
         """
@@ -759,6 +739,103 @@ class ServiceInfo:
                 for key, val in list(tmp_ret.items())
             ]
         }
+
+
+class ServiceGet:
+    def __init__(
+            self,
+            ser_instance_id: List[str] = None,
+            ser_name: List[str] = None,
+            ser_category_id: str = '',
+            scope_of_locality: LocalityType = LocalityType.MEC_HOST,
+            consumed_local_only: bool = None,
+            is_local: bool = None,
+    ):
+        """
+        :param ser_instance_id: A MEC application instance may use multiple ser_instance_ids as an input parameter to query the availability of a list of MEC service instances. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_instance_id: List[String]
+        :param ser_name: A MEC application instance may use multiple ser_names as an input parameter to query the availability of a list of MEC service instances. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_name: List[String]
+        :param ser_category_id: A MEC application instance may use ser_category_id as an input parameter to query the availability of a list of MEC service instances in a serCategory. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_category_id: String
+        :param consumed_local_only: Indicate whether the service can only be consumed by the MEC applications located in the same locality (as defined by scopeOfLocality) as this service instance.
+        :type consumed_local_only: boolean
+        :param is_local: Indicate whether the service is located in the same locality (as defined by scopeOfLocality) as the consuming MEC application.
+        :type is_local: boolean
+        :param scope_of_locality: A MEC application instance may use scope_of_locality as an input parameter to query the availability of a list of MEC service instances with a certain scope of locality.
+        :type scope_of_locality: String
+        :note: ser_name, ser_category_id, ser_instance_id are mutually-exclusive only one should be used or none
+        Raises ValidationError when invalid type is provided or mutual-exclusion failed
+        Section 8.2.3.3.1
+        """
+        self.ser_instance_id = ser_instance_id
+        self.ser_name = ser_name
+        self.ser_category_id = ser_category_id
+        self.scope_of_locality = scope_of_locality
+        self.consumed_local_only = consumed_local_only
+        self.is_local = is_local
+
+    def __str__(self):
+        return "\nser_instance_id: " + str(self.ser_instance_id) + \
+               "\nser_name: " + str(self.ser_name) + \
+               "\nser_category_id: " + str(self.ser_category_id) + \
+               "\nscope_of_locality: " + str(self.scope_of_locality) + \
+               "\nconsumed_local_only: " + str(self.consumed_local_only) + \
+               "\nis_local: " + str(self.is_local)
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                ser_instance_id=self.ser_instance_id,
+                ser_name=self.ser_name,
+                ser_category_id=self.ser_category_id,
+                scope_of_locality=self.scope_of_locality,
+                consumed_local_only=self.consumed_local_only,
+                is_local=self.is_local
+            )
+        )
+
+    def to_query(self):
+
+        # bool_converter = {"true": True, "false": False, None: None}
+
+        def bool_conv(att_value: str):
+            if att_value == "true":
+                return True
+            if att_value == "false":
+                return False
+            return att_value
+
+        query = dict(
+            serInstanceId=self.ser_instance_id,
+            serName=self.ser_name,
+            serCategory=self.ser_category_id,
+            scopeOfLocality=self.scope_of_locality,
+            consumedLocalOnly=bool_conv(self.consumed_local_only),
+            isLocal=bool_conv(self.is_local)
+        )
+
+        query = ignore_none_value(query)
+        validate(instance=query, schema=service_get_schema)
+
+        # Search for 'id' in the nested structure serCategory
+        if self.ser_category_id is not None:
+            query['serCategory.id'] = query.pop('serCategory')
+
+        if self.ser_instance_id is not None:
+            query['serInstanceId'] = query['serInstanceId'].split(",")
+        if self.ser_name is not None:
+            query['serName'] = query['serName'].split(",")
+
+        return query
+
+    def __str__(self):
+        return "\nser_instance_id: " + str(self.ser_instance_id) + \
+               "\nser_name: " + str(self.ser_name) + \
+               "\nser_category_id: " + str(self.ser_category_id) + \
+               "\nscope_of_locality: " + str(self.scope_of_locality) + \
+               "\nconsumed_local_only: " + str(self.consumed_local_only) + \
+               "\nis_local: " + str(self.is_local)
 
 
 ####################################
@@ -818,90 +895,49 @@ class Error:
             instance=self.instance
         )
 
+
 class BadRequest(Error):
     def __init__(self, e: Exception):
         Error.__init__(
             self,
             type="xxx",
-            title="Incorrect parameters were passed to the request",
+            title="Bad Request",
             status=400,
             detail=str(e).split('\n')[0],
-            instance=cherrypy.request.path_info
+            instance="xxx"
         )
 
-class Unauthorized(Error):
-    def __init__(self, detail: str = "Unauthorized operation"):
-        Error.__init__(
-            self,
-            type="about:blank",
-            title="Client did not submit the appropriate credentials",
-            status=401,
-            detail=detail,
-            instance=cherrypy.request.path_info
-        )
-
-class Forbidden(Error):
-    def __init__(self, detail : str = "This operation not allowed"):
-        Error.__init__(
-            self,
-            type="xxx",
-            title="The operation is not allowed given the current status of the resource",
-            status=403,
-            detail=detail,
-            instance=cherrypy.request.path_info
-        )
 
 class NotFound(Error):
     def __init__(self, detail: str = "This resource was not found"):
         Error.__init__(
             self,
             type="xxx",
-            title="The URI cannot be mapped to a valid resource URI.",
+            title="Not Found",
             status=404,
             detail=detail,
-            instance=cherrypy.request.path_info
+            instance="xxx"
         )
 
-class Conflict(Error):
-    def __init__(self, detail : str = "This operation not allowed"):
+
+class Forbidden(Error):
+    def __init__(self, detail: str = "This operation not allowed"):
         Error.__init__(
             self,
             type="xxx",
-            title="The operation is not allowed due to a conflict with the state of the resource",
-            status=409,
+            title="Forbidden",
+            status=403,
             detail=detail,
-            instance=cherrypy.request.path_info
+            instance="xxx"
         )
 
-class PreconditionFailed(Error):
-    def __init__(self, detail : str = "This operation not allowed"):
+class Precondition(Error):
+    def __init__(self, detail: str = "Precondition Failed"):
         Error.__init__(
             self,
             type="xxx",
-            title="The operation is not allowed due to a conflict with the state of the resource",
+            title="Forbidden",
             status=412,
             detail=detail,
-            instance=cherrypy.request.path_info
-        )
-
-class URITooLong(Error):
-    def __init__(self, detail : str = "The request URI is longer than the server is able to process"):
-        Error.__init__(
-            self,
-            type="xxx",
-            title="URI is too long",
-            status=414,
-            detail=detail,
-            instance=cherrypy.request.path_info
-        )
-
-class TooManyRequests(Error):
-    def __init__(self, detail : str = "Rate limiter has been triggered"):
-        Error.__init__(
-            self,
-            type="xxx",
-            title="Too many requests",
-            status=429,
-            detail=detail,
-            instance=cherrypy.request.path_info
+            instance="xxx"
         )

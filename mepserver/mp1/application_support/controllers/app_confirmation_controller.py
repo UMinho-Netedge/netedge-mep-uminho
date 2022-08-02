@@ -10,7 +10,7 @@ from ratelimit import limits, RateLimitException, sleep_and_retry
 
 class ApplicationConfirmationController:
     ONE_MINUTE = 60
-    MAX_CALLS_PER_MINUTE = 3
+    MAX_CALLS_PER_MINUTE = 100
 
     @cherrypy.tools.json_in()
     @limits(calls=MAX_CALLS_PER_MINUTE, period=ONE_MINUTE)
@@ -42,7 +42,7 @@ class ApplicationConfirmationController:
                     #error_msg = "Application %s is in %s state. This operation not allowed in this state." % (
                     #appInstanceId, appStatus["indication"])
                     #error = Forbidden(error_msg)
-                    cherrypy.response.status = 403
+                    cherrypy.response.status = 204
                     #return error.message()
                     return None
                 else:
