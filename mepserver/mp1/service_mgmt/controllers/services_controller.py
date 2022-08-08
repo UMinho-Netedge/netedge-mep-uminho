@@ -115,16 +115,6 @@ class ServicesController:
             # remove them from the result (list of all services)
             res = []
             for idx, service_info in enumerate(result):
-                '''
-                print(f"result len: {len(result)}")
-                print(f"enumerate len: {len(enumerate(result))}")
-                print(f"idx: {idx}")
-                print(f"service_info:\n{service_info}")
-                
-                if service_info["serInstanceId"] in servs_to_del:
-                    del res[idx]
-                    print("Hurray. I found one service to delete.")
-                '''
                 if service_info["serInstanceId"] not in servs_to_del:
                     res.append(service_info)
             print(f"result:\n{res}")
