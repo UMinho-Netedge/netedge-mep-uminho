@@ -97,9 +97,10 @@ filteringcriteria_schema = {
 seravailabilitynotificationsubscription_schema = {
     "type": "object",
     "properties": {
-        "callbackReference": {"type": "string"},
-        "filteringCriteria": filteringcriteria_schema,
         "subscriptionType": {"type": "string"},
+        "callbackReference": {"type": "string"},
+        "_links": links_schema, #changed
+        "filteringCriteria": filteringcriteria_schema,
     },
     "additionalProperties": False,
     "required": ["callbackReference"],
