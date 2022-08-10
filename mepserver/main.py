@@ -295,6 +295,7 @@ def main(database: Type[DatabaseBase]):
     # Config 404 and 403 landing pages
     cherrypy.config.update({'error_page.404': error_page_404})
     cherrypy.config.update({'error_page.403': error_page_403})
+    cherrypy.config.update({'error_page.400': error_page_400})
 
 
     ######################################
@@ -326,6 +327,18 @@ def error_page_403(status, message, traceback, version):
         type="xxxx",
         title="Forbidden.",
         status=403,
+        detail="The operation is not allowed given the current status of the resource.",
+        instance="xxx"
+    )
+    return json.dumps(errorMessage.to_json())
+
+def error_page_400(status, message, traceback, version):
+    response = cherrypy.response
+    response.headers['Content-Type'] = 'application/json'
+    errorMessage = ProblemDetails(
+        type="xxxx",
+        title="Forbidden.",
+        status=400,
         detail="The operation is not allowed given the current status of the resource.",
         instance="xxx"
     )

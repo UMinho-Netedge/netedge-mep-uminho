@@ -8,10 +8,11 @@ sys.path.append("../../")
 from mp1.models import *
 from mp1.enums import IndicationType
 from threading import Lock
+from json.decoder import JSONDecodeError
 
-
-ATTEMPT_RATE_LIM = 0.5
-
+ATTEMPT_LIM = 1  # maximum no. of attempts in TIME_RESET seconds 
+TIME_RESET = 30  # in seconds
+RATE_LIM = ATTEMPT_LIM/TIME_RESET
 
 class ApplicationConfirmationController:
     
@@ -26,8 +27,28 @@ class ApplicationConfirmationController:
                     ApplicationConfirmationController.attemps_dict[appInstanceId] = [1, time.time()]
                     print(f"\nadd_app_if_not_exists: \n{ApplicationConfirmationController.attemps_dict[appInstanceId]}")
                     return 1
-            print(f"\nadd_app_if_not_exists: already exists")
+            print(f"\nadd_app_if_not_exists: already exists!")
             return 0
+
+    @classmethod
+    def add_attempt(cls, appInstanceId: str, error_msg: str):
+        with cls.lock:
+            att_dict = ApplicationConfirmationController.attemps_dict
+            # increments attempt and returns the respective pair
+            att_dict[appInstanceId][0] += 1
+            
+            # rate = (no. of app attempts) / (seconds passed since first attempt)
+            time_diff = time.time() - att_dict[appInstanceId][1]
+            rate = att_dict[appInstanceId][0] / time_diff
+            #print(f"rate = {rate} | RATE_LIM = {RATE_LIM}")
+            if rate >= RATE_LIM:
+                #print(f"rate >= RATE_LIM {rate >= RATE_LIM}")
+                error = TooManyRequests(error_msg)
+                return error.message()
+            elif time_diff >= TIME_RESET:
+                # reset app attempts
+                att_dict[appInstanceId] = [1, time.time()]
+            return None
 
     @classmethod
     def increment_attempt(cls, appInstanceId: str):
@@ -100,17 +121,47 @@ class ApplicationConfirmationController:
 
         Section 7.2.11.3.4
         """
-
+        
         try:
             appTerminationConfirmation = AppTerminationConfirmation.from_json(
                 cherrypy.request.json
             )
-        except jsonschema.exceptions.ValidationError:
+        except (jsonschema.exceptions.ValidationError, json.decoder.JSONDecodeError, TypeError):
             error_msg = "Request body must have only the 'operationAction' "   \
                         "attribute which can only have one of two possible "   \
                         "values: TERMINATING or STOPPING."
             error = BadRequest(error_msg)
             return error.message()
+
+
+        ######################################
+        ## Fake/induced appStatus indication. 
+        ## Just for test while AppTerminationNotification doesn't change status
+        #appStatus['indication'] = "TERMINATING"
+        #appStatus['indication'] = "STOPPING"
+
+        '''
+        ## Do the terminationNotification task of change app status
+        ## (to remove after terminationNotification is implemented)
+        appInstanceDict = dict(appInstanceId=appInstanceId)
+        appStatusDict = dict(
+            {"indication" : appTerminationConfirmation.operationAction.name}
+        )
+        updateStatus = cherrypy.thread_data.db.update(
+            "appStatus", 
+            appInstanceDict, 
+            appStatusDict
+            )
+
+        # AppStatus confirmation of indication change
+        print(f"\n# AppStatus confirmation #\nAppStatus of appInstanceId {appInstanceId}:")
+        pprint.pprint(cherrypy.thread_data.db.query_col("appStatus", dict(appInstanceId=appInstanceId), find_one=True,))
+        print(f"updateStatus.modified_count {updateStatus.modified_count}")
+        print(f"updateStatus.matched_count {updateStatus.matched_count}\n")
+
+        '''
+        ######################################
+
 
         query_appStatus = dict(appInstanceId=appInstanceId)
         appStatus = cherrypy.thread_data.db.query_col(
@@ -119,52 +170,28 @@ class ApplicationConfirmationController:
             find_one=True,
         )
 
-        
-        if appStatus:
-            # MEC Platform has already notified MEC App that it will be 
-            # terminated or stopped soon (AppTerminationNotification). 
-            # At that point, in appStatus collection, app's indication attribute
-            # is changed to "TERMINATING" or "STOPPING". This attribute must match
-            # that sent in AppTerminationConfirmation raising an error otherwise.
+        # At this point the app appInstanceId was already notified with 
+        # terminationNotification by MEP which:
+        # * change the app status ("indication") on database
+        # * notifies subscripted apps
+        # * notifies the producer app of status modification
+
+        # The service producing App should deregister its produced services
+        # before the time expires.
+
+        if not appStatus:
+            error_msg = "The application instance resource is not instantiated."
+            error = Conflict(error_msg)
+            return error.message()
+
+        else:
+            # At this point, in appStatus collection, "indication" has already 
+            # been changed to "TERMINATING" or "STOPPING". This attribute must match
+            # that sent in AppTerminationConfirmation, raising an error otherwise.
             operationAction = str(appTerminationConfirmation.operationAction)
 
-            ######################################
-            ## Fake/induced appStatus indication. 
-            ## Just for test while AppTerminationNotification doesn't change status
-            #appStatus['indication'] = "TERMINATING"
-            #appStatus['indication'] = "STOPPING"
-
-            #'''
-            ## Do the terminationNotification task of change app status
-            ## (to remove after terminationNotification is implemented)
-            appInstanceDict = dict(appInstanceId=appInstanceId)
-            appStatusDict = dict(
-                {"indication" : appTerminationConfirmation.operationAction.name}
-            )
-            cherrypy.thread_data.db.update(
-                "appStatus", 
-                appInstanceDict, 
-                appStatusDict
-                )
-
-            # AppStatus confirmation of indication change
-            print(f"\n# AppStatus confirmation #\nAppStatus of appInstanceId {appInstanceId}:")
-            pprint.pprint(cherrypy.thread_data.db.query_col("appStatus", dict(appInstanceId=appInstanceId), find_one=True,))
-
-            #'''
-            ######################################
-
-            # [Case 1] AppTerminationNotification didn't change app status yet
-            # (e.g. app time for stop/termination didn't expire yet)
             if appStatus['indication'] != operationAction:
                 # First attempt #
-                # Create new dict element with appInstanceId as key and a pair 
-                # with no. of attempts in 1st position and time of first attempt
-                # in 2nd position
-                '''
-                if str(appInstanceId) not in ApplicationConfirmationController.attemps_dict.keys():
-                    ApplicationConfirmationController.attemps_dict[str(appInstanceId)] = (1, time.time())
-                '''
                 # if true: add new element in class dict. 
                 # otherwise: do nothing and passes to else
                 if ApplicationConfirmationController.add_app_if_not_exists(appInstanceId):
@@ -174,65 +201,54 @@ class ApplicationConfirmationController:
                 # Add 1 more attempt to correspondent dict pair and tests for 
                 # attempt rate limit
                 else:
-                    '''
-                    ApplicationConfirmationController.attemps_dict[str(appInstanceId)].first += 1
-                    app_attmpt_info = ApplicationConfirmationController.attemps_dict[str(appInstanceId)]
-
-                    '''
-                    # increments attempt and returns the respective pair
-                    app_attmpt_info = ApplicationConfirmationController.increment_attempt(appInstanceId)
-                    
-                    # (no. of attempts to this app) / (seconds passed since first attempt)
-                    rate = app_attmpt_info[0] / (time.time() - app_attmpt_info[1])
-                    if rate >= ATTEMPT_RATE_LIM:
-                        error_msg = f"Too many requests have been sent. Try again soon."
-                        error = TooManyRequests(error_msg)
-                        return error.message()
+                    # return TooManyRequests error with gived msg if RATE_LIM is excedeed
+                    error_msg = f"Too many requests have been sent. Try again soon."
+                    error = ApplicationConfirmationController.add_attempt(appInstanceId, error_msg)
+                    if error is not None:
+                        return error
 
                 error_msg = f"There is no {operationAction.lower()} operation ongoing."
                 error = Conflict(error_msg)
                 return error.message()
 
-            """
-            if app_exists:
-                del ApplicationConfirmationController.attemps_dict[str(appInstanceId)]
-            """
-            # terminationNotification already changed the app status
             # If there were previous attempts, without appStatus matching, we 
             # have to del app in attemps_dict so it doesn't get false 
             # TooManyRequests error
-            ApplicationConfirmationController.delete_if_exists(appInstanceId)
+            #ApplicationConfirmationController.delete_if_exists(appInstanceId)
 
-            # [Case 2] AppTerminationNotification changed app status already
+
+            # if appStatus['indication'] == operationAction
             # First attempt
-            '''
-            if str(appInstanceId) not in ApplicationConfirmationController.attemps_dict.keys():
-                ApplicationConfirmationController.attemps_dict[str(appInstanceId)] = (1, time.time())
-            '''
             if ApplicationConfirmationController.add_app_if_not_exists(appInstanceId):
                     pass
+
             # Next attempts
             else:
+                # return TooManyRequests error with gived msg if RATE_LIM is excedeed
                 error_msg = f"{operationAction.lower()} is already being handled."
-                error = TooManyRequests(error_msg)
-                return error.message()
-            
+                error = ApplicationConfirmationController.add_attempt(appInstanceId, error_msg)
+                if error is not None:
+                        return error
             '''
             # Note:
                 All TODO tasks might be already in course if time interval definied
                 in termination notification has expired
             '''
 
-            # TODO deactivate traffic rules
+            # TODO confirm deactivation of traffic rules
 
-            # TODO deactivate dns rules
+            # TODO confirm deactivation of dns rules
 
             # TODO sending service availability notification to the MEC apps
             # that consumes the services produced by the terminating/stopping
-            # MEC app instance
+            # MEC app instance (if app didn't started service deregistration yet)
+            
+            time.sleep(15)  # to test TooManyRequests error
 
-
-            if operationAction == "TERMINATING":
+            # TODO distinguish "TERMINATING" behaviour from "STOPPING".
+            # (?) TERMINATING: remove app and its services from appStatus and services collection (respectively)
+            # (?) STOPPING: keep app and services but change services "state" to INACTIVE or SUSPENDED
+            if (operationAction == "TERMINATING") or (operationAction == "STOPPING"):
                 if len(appStatus['services']) > 0:
                     # list app services
                     serv_lst = []
@@ -242,6 +258,7 @@ class ApplicationConfirmationController:
 
                     # TODO remove the MEC app instance from the list of instances
                     # to be notified about service availability (subscriptions)
+                    # if not done yet
 
 
                     # app services removal from services collection
@@ -254,14 +271,10 @@ class ApplicationConfirmationController:
                 # app removal from appStatus collection
                 cherrypy.thread_data.db.remove("appStatus", query_appStatus)
 
+            
+
             # remove appInstanceId from class dictionary
             ApplicationConfirmationController.delete_app_attempts(appInstanceId)
-            #del ApplicationConfirmationController.attemps_dict[str(appInstanceId)]
-
-        else:
-            error_msg = "The application instance resource is not instantiated."
-            error = Conflict(error_msg)
-            return error.message()
 
         cherrypy.response.status = 204
 
