@@ -292,8 +292,10 @@ def main(database: Type[DatabaseBase]):
     mgmt_conf = {"/": {"request.dispatch": mgmt_dispatcher}}
     cherrypy.tree.mount(None, "/mec_service_mgmt/v1", config=mgmt_conf)
 
-    # Config 404 landing page
+    # Config 404 and 403 landing pages
     cherrypy.config.update({'error_page.404': error_page_404})
+    cherrypy.config.update({'error_page.403': error_page_403})
+
 
     ######################################
     # Database Connection to all threads #
@@ -310,6 +312,18 @@ def error_page_404(status, message, traceback, version):
     error = NotFound(error_msg)
     cherrypy.response.headers["Content-Type"] = "application/problem+json"
     return json.dumps(error.message().to_json())
+
+def error_page_403(status, message, traceback, version):
+    response = cherrypy.response
+    response.headers['Content-Type'] = 'application/json'
+    errorMessage = ProblemDetails(
+        type="xxxx",
+        title="Forbidden.",
+        status=403,
+        detail="The operation is not allowed given the current status of the resource.",
+        instance="xxx"
+    )
+    return json.dumps(errorMessage.to_json())
 
 
 if __name__ == "__main__":
