@@ -11,7 +11,7 @@ from threading import Lock
 from json.decoder import JSONDecodeError
 
 ATTEMPT_LIM = 1  # maximum no. of attempts in TIME_RESET seconds 
-TIME_RESET = 30  # in seconds
+TIME_RESET = 5  # in seconds
 RATE_LIM = ATTEMPT_LIM/TIME_RESET
 
 class ApplicationConfirmationController:
@@ -25,7 +25,7 @@ class ApplicationConfirmationController:
         with cls.lock:
             if appInstanceId not in ApplicationConfirmationController.attemps_dict.keys():
                     ApplicationConfirmationController.attemps_dict[appInstanceId] = [1, time.time()]
-                    print(f"\nadd_app_if_not_exists: \n{ApplicationConfirmationController.attemps_dict[appInstanceId]}")
+                    print(f"\nadd_app_if_not_exists: {ApplicationConfirmationController.attemps_dict[appInstanceId]}")
                     return 1
             print(f"\nadd_app_if_not_exists: already exists!")
             return 0
@@ -40,14 +40,16 @@ class ApplicationConfirmationController:
             # rate = (no. of app attempts) / (seconds passed since first attempt)
             time_diff = time.time() - att_dict[appInstanceId][1]
             rate = att_dict[appInstanceId][0] / time_diff
-            #print(f"rate = {rate} | RATE_LIM = {RATE_LIM}")
-            if rate >= RATE_LIM:
+            print(f"time_diff = {time.time()} - {att_dict[appInstanceId][1]} = {time_diff}")
+            print(f"rate = {rate} | RATE_LIM = {RATE_LIM}")
+            if time_diff >= TIME_RESET:
+                # reset app attempts
+                att_dict[appInstanceId] = [1, time.time()]
+            elif rate >= RATE_LIM:
                 #print(f"rate >= RATE_LIM {rate >= RATE_LIM}")
                 error = TooManyRequests(error_msg)
                 return error.message()
-            elif time_diff >= TIME_RESET:
-                # reset app attempts
-                att_dict[appInstanceId] = [1, time.time()]
+            
             return None
 
     @classmethod
@@ -134,35 +136,6 @@ class ApplicationConfirmationController:
             return error.message()
 
 
-        ######################################
-        ## Fake/induced appStatus indication. 
-        ## Just for test while AppTerminationNotification doesn't change status
-        #appStatus['indication'] = "TERMINATING"
-        #appStatus['indication'] = "STOPPING"
-
-        '''
-        ## Do the terminationNotification task of change app status
-        ## (to remove after terminationNotification is implemented)
-        appInstanceDict = dict(appInstanceId=appInstanceId)
-        appStatusDict = dict(
-            {"indication" : appTerminationConfirmation.operationAction.name}
-        )
-        updateStatus = cherrypy.thread_data.db.update(
-            "appStatus", 
-            appInstanceDict, 
-            appStatusDict
-            )
-
-        # AppStatus confirmation of indication change
-        print(f"\n# AppStatus confirmation #\nAppStatus of appInstanceId {appInstanceId}:")
-        pprint.pprint(cherrypy.thread_data.db.query_col("appStatus", dict(appInstanceId=appInstanceId), find_one=True,))
-        print(f"updateStatus.modified_count {updateStatus.modified_count}")
-        print(f"updateStatus.matched_count {updateStatus.matched_count}\n")
-
-        '''
-        ######################################
-
-
         query_appStatus = dict(appInstanceId=appInstanceId)
         appStatus = cherrypy.thread_data.db.query_col(
             "appStatus",
@@ -211,12 +184,6 @@ class ApplicationConfirmationController:
                 error = Conflict(error_msg)
                 return error.message()
 
-            # If there were previous attempts, without appStatus matching, we 
-            # have to del app in attemps_dict so it doesn't get false 
-            # TooManyRequests error
-            #ApplicationConfirmationController.delete_if_exists(appInstanceId)
-
-
             # if appStatus['indication'] == operationAction
             # First attempt
             if ApplicationConfirmationController.add_app_if_not_exists(appInstanceId):
@@ -243,7 +210,7 @@ class ApplicationConfirmationController:
             # that consumes the services produced by the terminating/stopping
             # MEC app instance (if app didn't started service deregistration yet)
             
-            time.sleep(15)  # to test TooManyRequests error
+            time.sleep(1)  # to test TooManyRequests error
 
             # TODO distinguish "TERMINATING" behaviour from "STOPPING".
             # (?) TERMINATING: remove app and its services from appStatus and services collection (respectively)
