@@ -941,3 +941,170 @@ class Precondition(Error):
             detail=detail,
             instance="xxx"
         )
+
+class TrafficFilter:
+    def __init__(self, srcAddress: List[str] = None,
+                 dstAddress: List[str] = None,
+                 srcPort: List[str] = None,
+                 dstPort: List[str] = None,
+                 protocol: List[str] = None,
+                 token: List[str] = None,
+                 srcTunnelAddress: List[str] = None,
+                 tgtTunnelAddress: List[str] = None,
+                 srcTunnelPort: List[str] = None,
+                 dstTunnelPort: List[str] = None,
+                 qCI: int = 0,
+                 dSCP: int = 0,
+                 tC: int = 0):
+
+        self.srcAddress = srcAddress
+        self.dstAddress = dstAddress
+        self.srcPort = srcPort
+        self.dstPort = dstPort
+        self.protocol = protocol
+        self.token = token
+        self.srcTunnelAddress = srcTunnelAddress
+        self.tgtTunnelAddress = tgtTunnelAddress
+        self.srcTunnelPort = srcTunnelPort
+        self.dstTunnelPort = dstTunnelPort
+        self.qCI = qCI
+        self.dSCP = dSCP
+        self.tC = tC
+
+    @staticmethod
+    def from_json(data: dict) -> TrafficFilter:
+
+        # First validate the json via jsonschema
+        validate(instance=data, schema=traffic_filter_schema)
+
+        srcAddress = data.pop("srcAddress")
+        dstAddress = data.pop("dstAddress")
+        srcPort = data.pop("srcPort")
+        dstPort = data.pop("dstPort")
+        protocol = data.pop("protocol")
+        token = data.pop("token")
+        srcTunnelAddress = data.pop("srcTunnelAddress")
+        tgtTunnelAddress = data.pop("tgtTunnelAddress")
+        srcTunnelPort = data.pop("srcTunnelPort")
+        dstTunnelPort = data.pop("dstTunnelPort")
+        qCI = data.pop("qCI")
+        dSCP = data.pop("dSCP")
+        tC = data.pop("tC")
+
+        return TrafficFilter(srcAddress = srcAddress, dstAddress = dstAddress, srcPort = srcPort,
+                             dstPort = dstPort, protocol = protocol, token = token,
+                             srcTunnelAddress = srcTunnelAddress, tgtTunnelAddress = tgtTunnelAddress,
+                             srcTunnelPort = srcTunnelPort, dstTunnelPort = dstTunnelPort, qCI = qCI,
+                             dSCP = dSCP, tC = tC)
+
+    def to_json(self):
+        return ignore_none_value(dict(srcAddress = self.srcAddress, dstAddress = self.dstAddress, srcPort = self.srcPort,
+                                      dstPort = self.dstPort, protocol = self.protocol, token = self.token,
+                                      srcTunnelAddress = self.srcTunnelAddress, tgtTunnelAddress = self.tgtTunnelAddress,
+                                      srcTunnelPort = self.srcTunnelPort, dstTunnelPort = self.dstTunnelPort,
+                                      qCI = self.qCI, dSCP = self.dSCP, tC = self.tC))
+
+class TunnelInfo:
+
+    def __init__(self, tunnelType: str, tunnelDstAddress: str,
+                 tunnelSrcAddress: str):
+
+        self.tunnelType = tunnelType
+        self.tunnelDstAddress = tunnelDstAddress
+        self.tunnelSrcAddress = tunnelSrcAddress
+
+    @staticmethod
+    def from_json(data: dict) -> TunnelInfo:
+        # First validate the json via jsonschema
+        validate(instance=data, schema=tunnel_info_schema)
+
+        tunnelType = data.pop("tunnelType")
+        tunnelDstAddress = data.pop("tunnelDstAddress")
+        tunnelSrcAddress = data.pop("tunnelSrcAddress")
+
+        return TunnelInfo(tunnelType = tunnelType, tunnelDstAddress = tunnelDstAddress,
+                          tunnelSrcAddress = tunnelSrcAddress)
+
+    def to_json(self):
+        return ignore_none_value(dict(tunnelType = self.tunnelType,
+                                      tunnelDstAddress = self.tunnelDstAddress,
+                                      tunnelSrcAddress = self.tunnelSrcAddress) )
+
+
+class DestinationInterface:
+    def __init__(self, interface_type: str,
+                 tunnelInfo: TunnelInfo = None,
+                 srcMacAddress: str = '',
+                 dstMacAddress: str = '',
+                 dstIpAddress: str= ''):
+
+        self.interface_type = interface_type
+        self.tunnelInfo = tunnelInfo
+        self.srcMacAddress = srcMacAddress
+        self.dstMacAddress = dstMacAddress
+        self.dstIpAddress = dstIpAddress
+
+    @staticmethod
+    def from_json(data: dict) -> DestinationInterface:
+        # First validate the json via jsonschema
+        validate(instance=data, schema=destination_interface_schema)
+
+        interface_type = data.pop("interface_type")
+        tunnelInfo = TunnelInfo.from_json(data.pop("tunnelInfo"))
+        srcMacAddress = data.pop("srcMacAddress")
+        dstMacAddress = data.pop("dstMacAddress")
+        dstIpAddress = data.pop("dstIpAddress")
+
+        return DestinationInterface(interface_type = interface_type, tunnelInfo = tunnelInfo,
+                                    srcMacAddress = srcMacAddress, dstMacAddress = dstMacAddress,
+                                    dstIpAddress = dstIpAddress)
+
+    def to_json(self):
+        return ignore_none_value(dict(interface_type = self.interface_type,
+                                      tunnelInfo = self.tunnelInfo, srcMacAddress = self.srcMacAddress,
+                                      dstMacAddress = self.dstMacAddress, dstIpAddress = self.dstIpAddress) )
+
+
+class TrafficRules:
+    def __init__(self, trafficRuleId: str, filterType: str,
+                 priority: int,
+                 trafficFilter: TrafficFilter = None,
+                 action: str = '',
+                 dstInterface: List[DestinationInterface] = None,
+                 state: str = ''):
+
+        self.trafficRuleId = trafficRuleId
+        self.filterType = filterType
+        self.priority = priority
+        self.trafficFilter = trafficFilter
+        self.action = action
+        self.dstInterface = dstInterface
+        self.state = state
+
+
+    @staticmethod
+    def from_json(data: dict) -> TrafficRules:
+        # First validate the json via jsonschema
+        validate(instance=data, schema=traffic_rule_schema)
+
+        trafficRuleId = data.pop("trafficRuleId")
+        filterType = data.pop("filterType")
+        priority = data.pop("priority")
+        trafficFilter = TrafficFilter.from_json(data.pop("trafficFilter"))
+        action = data.pop("action")
+        dstInterface = DestinationInterface.from_json(data.pop("dstInterface"))
+        state = data.pop("state")
+
+
+        return TrafficRules(trafficRuleId = trafficRuleId, filterType = filterType,
+                            priority = priority, trafficFilter = trafficFilter, action = action,
+                            dstInterface = dstInterface, state = state)
+
+    def to_json(self):
+        return ignore_none_value(dict(trafficRuleId = self.trafficRuleId, filterType = self.filterType,
+                                      priority = self.priority, trafficFilter = self.trafficFilter,
+                                      action = self.action, dstInterface = self.dstInterface, state = self.state) )
+
+
+
+

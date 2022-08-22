@@ -26,6 +26,9 @@ from mp1.application_support.controllers.app_confirmation_controller import (
     ApplicationConfirmationController,
 )
 
+from mp1.application_support.controllers.app_traffic_rules_controller import AppTrafficRulesController
+
+
 from mp1.databases.database_base import DatabaseBase
 from mp1.databases.dbmongo import MongoDb
 from typing import Type
@@ -61,6 +64,41 @@ def main(database: Type[DatabaseBase]):
         controller=ApplicationConfirmationController,
         route="/applications/:appInstanceId/confirm_termination",
         conditions=dict(method=["POST"]),
+    )
+
+    #################################
+    # App Traffic Rules Controller  #
+    #################################
+    support_dispatcher.connect(
+        name="Post Traffic Rules - Support Only",
+        action="support_traffic_rules_post",
+        controller=AppTrafficRulesController,
+        route="/applications/:appInstanceId/traffic_rules",
+        conditions=dict(method=["POST"]),
+    )
+
+    support_dispatcher.connect(
+        name="Get Traffic Rules",
+        action="app_traffic_rules_get",
+        controller=AppTrafficRulesController,
+        route="/applications/:appInstanceId/traffic_rules",
+        conditions=dict(method=["GET"]),
+    )
+
+    support_dispatcher.connect(
+        name="Get Traffic Rule with trafficRuleId",
+        action="app_traffic_rules_get_with_rule_id",
+        controller=AppTrafficRulesController,
+        route="/applications/:appInstanceId/traffic_rules/:trafficRuleId",
+        conditions=dict(method=["GET"]),
+    )
+
+    support_dispatcher.connect(
+        name="Put data into existing traffic rule",
+        action="app_traffic_rules_put",
+        controller=AppTrafficRulesController,
+        route="/applications/:appInstanceId/traffic_rules/:trafficRuleId",
+        conditions=dict(method=["PUT"]),
     )
 
     #############################################
