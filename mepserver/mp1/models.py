@@ -1050,7 +1050,7 @@ class DestinationInterface:
         validate(instance=data, schema=destination_interface_schema)
 
         interface_type = data.pop("interface_type")
-        tunnelInfo = TunnelInfo.from_json(data.pop("tunnelInfo"))
+        tunnelInfo = TunnelInfo(data.pop("tunnelInfo"))
         srcMacAddress = data.pop("srcMacAddress")
         dstMacAddress = data.pop("dstMacAddress")
         dstIpAddress = data.pop("dstIpAddress")
@@ -1065,10 +1065,11 @@ class DestinationInterface:
                                       dstMacAddress = self.dstMacAddress, dstIpAddress = self.dstIpAddress) )
 
 
+
 class TrafficRules:
     def __init__(self, trafficRuleId: str, filterType: str,
                  priority: int,
-                 trafficFilter: TrafficFilter = None,
+                 trafficFilter: List[TrafficFilter] = None,
                  action: str = '',
                  dstInterface: List[DestinationInterface] = None,
                  state: str = ''):
@@ -1085,14 +1086,25 @@ class TrafficRules:
     @staticmethod
     def from_json(data: dict) -> TrafficRules:
         # First validate the json via jsonschema
+
+        cherrypy.log("validade tunnelInfo")
+        validate(instance = data["dstInterface"][0]["tunnelInfo"], schema = tunnel_info_schema)
+
+        cherrypy.log("validate trafficFilter")
+        validate(instance = data["trafficFilter"][0], schema = traffic_filter_schema)
+
+        cherrypy.log("validate dstInterface")
+        validate(instance=data["dstInterface"][0], schema=destination_interface_schema)
+
+        cherrypy.log("validate traffic rule")
         validate(instance=data, schema=traffic_rule_schema)
 
         trafficRuleId = data.pop("trafficRuleId")
         filterType = data.pop("filterType")
         priority = data.pop("priority")
-        trafficFilter = TrafficFilter.from_json(data.pop("trafficFilter"))
+        trafficFilter = TrafficFilter(data.pop("trafficFilter"))
         action = data.pop("action")
-        dstInterface = DestinationInterface.from_json(data.pop("dstInterface"))
+        dstInterface = DestinationInterface(data.pop("dstInterface"))
         state = data.pop("state")
 
 
@@ -1104,7 +1116,4 @@ class TrafficRules:
         return ignore_none_value(dict(trafficRuleId = self.trafficRuleId, filterType = self.filterType,
                                       priority = self.priority, trafficFilter = self.trafficFilter,
                                       action = self.action, dstInterface = self.dstInterface, state = self.state) )
-
-
-
 

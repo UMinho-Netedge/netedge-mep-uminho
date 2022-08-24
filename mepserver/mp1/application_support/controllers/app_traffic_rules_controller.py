@@ -49,7 +49,7 @@ class AppTrafficRulesController:
                     extra=dict(appInstanceId=appInstanceId) ),
             )
 
-            cherrypy.respose.status = 201
+            cherrypy.response.status = 201
             return trafficRule
 
 

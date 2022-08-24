@@ -275,22 +275,30 @@ service_get_schema = {
 traffic_filter_schema = {
     "type": "object",
     "properties": {
-        "srcAddress": {"type": "array", "items": {"type": "string"}},
-        "dstAddress": {"type": "array", "items": {"type": "string"}},
-        "srcPort": {"type": "array", "items": {"type": "string"}},
-        "dstPort": {"type": "array", "items": {"type": "string"}},
-        "protocol": {"type": "array", "items": {"type": "string"}},
-        "token": {"type": "array", "items": {"type": "string"}},
-        "srcTunnelAddress": {"type": "array", "items": {"type": "string"}},
-        "tgtTunnelAddress": {"type": "array", "items": {"type": "string"}},
-        "srcTunnelPort": {"type": "array", "items": {"type": "string"}},
-        "dstTunnelPort": {"type": "array", "items": {"type": "string"}},
+        "srcAddress": {"type": "array",
+                       "items": {"type": "string"}},
+        "dstAddress": {"type": "array",
+                       "items": {"type": "string"}},
+        "srcPort": {"type": "array",
+                    "items": {"type": "string"}},
+        "dstPort": {"type": "array",
+                    "items": {"type": "string"}},
+        "protocol": {"type": "array",
+                     "items": {"type": "string"}},
+        "token": {"type": "array",
+                  "items": {"type": "string"}},
+        "srcTunnelAddress": {"type": "array",
+                             "items": {"type": "string"}},
+        "tgtTunnelAddress": {"type": "array",
+                             "items": {"type": "string"}},
+        "srcTunnelPort": {"type": "array",
+                          "items": {"type": "string"}},
+        "dstTunnelPort": {"type": "array",
+                          "items": {"type": "string"}},
         "qCI": {"type": "integer"},
         "dSCP": {"type": "integer"},
-        "tC": {"type": "integer"}
+        "tC": {"type": "integer"},
     },
-    "required": ["srcAddress", "dstAddress", "srcPort", "dstPort", "protocol", "token", "srcTunnelAddress",
-                 "tgtTunnelAddress", "srcTunnelPort", "dstTunnelPort", "qCI", "dSCP", "tC"],
 
     "additionalProperties": False,
 }
@@ -298,40 +306,46 @@ traffic_filter_schema = {
 tunnel_info_schema = {
     "type": "object",
     "properties": {
-        "tunnelType": {"type": "string", "enum": ["GTP_U", "GRE"]},
+        "tunnelType": {"enum": ["GTP_U", "GRE"]},
         "tunnelDstAddress": {"type": "string"},
-        "tunnelSrcAddress": {"type": "string"}
+        "tunnelSrcAddress": {"type": "string"},
     },
     "required": ["tunnelType"],
-    "additionalProperties": False
+    "additionalProperties": False,
 }
 
 destination_interface_schema = {
     "type": "object",
-    "properties":{
-        "interface_type": {"type": "string", "enum": ["TUNNEL", "MAC", "IP"]},
-        "tunnelInfo": {"type": tunnel_info_schema},
+    "properties": {
+        "interfaceType": {"enum": ["TUNNEL", "MAC", "IP"]},
+        "tunnelInfo": tunnel_info_schema,
         "srcMacAddress": {"type": "string"},
         "dstMacAddress": {"type": "string"},
-        "dstIpAddress": {"type": "string"}
+        "dstIpAddress": {"type": "string"},
     },
     "required": ["interfaceType"],
-    "additionalProperties": False
+    "additionalProperties": False,
 }
 
 traffic_rule_schema = {
     "type": "object",
     "properties": {
         "trafficRuleId": {"type": "string"},
-        "filterType": {"type": "string", "enum": ["FLOW", "PACKET"]},
+        "filterType": {"enum": ["FLOW", "PACKET"]},
         "priority": {"type": "integer"},
-        "trafficFilter": {"type": traffic_filter_schema},
-        "action": {"type": "string", "enum": ["DROP", "FORWARD_DECAPSULATED", "FORWARD_ENCAPSULATED",
-                                              "PASSTHROUGH", "DUPLICATE_DECAPSULATED", "DUPLICATE_ENCAPSULATED"]},
-        "dstInterface": {"type": "array", "items": {"type": destination_interface_schema}, "maxItems": 2},
-        "state": {"type": "string", "enum": ["ACTIVE", "INACTIVE"]}
+        "trafficFilter": {"type": "array",
+                         "items": traffic_filter_schema},
+
+        "action": {"enum": ["DROP", "FORWARD_DECAPSULATED", "FORWARD_ENCAPSULATED", "PASSTHROUGH",
+                            "DUPLICATE_DECAPSULATED","DUPLICATE_ENCAPSULATED"]},
+
+        "dstInterface": {"type": "array",
+                         "items": destination_interface_schema,
+                         "maxItems": 2},
+
+        "state": {"enum": ["ACTIVE", "INACTIVE"]},
     },
     "required": ["trafficRuleId", "filterType", "priority", "trafficFilter", "action", "state"],
-    "additionalProperties": False
+    "additionalProperties": False,
 }
 
