@@ -73,10 +73,13 @@ def main(database: Type[DatabaseBase]):
         conditions=dict(method=["POST"]),
     )
 
+    ############################################################################
+    # TODO: Remove this part before deployment
+
     #############################
     # Tests Controller #
     #
-    # Solely for tests extra mp1
+    # Only used for tests!
     #############################
     tests_dispatcher = cherrypy.dispatch.RoutesDispatcher()
 
@@ -88,6 +91,23 @@ def main(database: Type[DatabaseBase]):
         conditions=dict(method=["PATCH"]),
     )
 
+    tests_dispatcher.connect(
+        name="Post MEC App Dns Rule",
+        action="dns_rule_post",
+        controller=TestsController,
+        route="/applications/:appInstanceId/dns_rules/:dnsRuleId",
+        conditions=dict(method=["POST"]),
+    )
+
+    tests_dispatcher.connect(
+        name="Remove all collections from database",
+        action="remove_db_collections",
+        controller=TestsController,
+        route="/applications/remove_all",
+        conditions=dict(method=["POST"]),
+    )
+
+    ############################################################################
 
     #################################
     # App Traffic Rules Controller  #
@@ -310,7 +330,7 @@ def main(database: Type[DatabaseBase]):
     mgmt_conf = {"/": {"request.dispatch": mgmt_dispatcher}}
     cherrypy.tree.mount(None, "/mec_service_mgmt/v1", config=mgmt_conf)
 
-    # Solely for tests extra mp1
+    # Solely for tests (extra mp1)
     tests_conf = {"/": {"request.dispatch": tests_dispatcher}}
     cherrypy.tree.mount(None, "/mec_tests/v1", config=tests_conf)
 

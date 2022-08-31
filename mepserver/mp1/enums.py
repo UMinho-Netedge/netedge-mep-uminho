@@ -70,3 +70,11 @@ class ChangeType(Enum):
     REMOVED = "REMOVED"  # The service was removed
     STATE_CHANGED = "STATE_CHANGED"  # Only the state of the service was changed
     ATTRIBUTES_CHANGED = "ATTRIBUTES_CHANGED"  # At least one attribute of the service other than state was changed. The change may or may not include changing the state
+
+class IpAddressType(Enum):
+    IP_V4 = "IP_V4"
+    IP_V6 = "IP_V6"
+
+class StateType(Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"

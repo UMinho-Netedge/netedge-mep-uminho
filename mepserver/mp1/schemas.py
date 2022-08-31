@@ -278,3 +278,58 @@ service_get_schema = {
     },
     "additionalProperties": False,
 }
+
+dns_rule_schema = {
+    "type": "object",
+    "properties": {
+        "dnsRuleId": {"type": "string"},
+        "domainName": {"type": "string"},
+        "ipAddressType": {
+            "enum": [
+                "IP_V6",
+                "IP_V4"
+                ]
+        },
+        "ipAddress": {"type": "string"},
+        "ttl": {"type": "integer"},
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE"
+                ]
+        }
+    },
+    "required": ["dnsRuleId", "domainName", "ipAddressType", "state"],
+    "additionalProperties": False,
+}
+
+dns_rule_put_schema = {
+    "type": "object",
+    "properties": {
+        "dnsRuleId": {"type": "string"},
+        "domainName": {"type": "string"},
+        "ipAddressType": {
+            "enum": [
+                "IP_V6",
+                "IP_V4"
+                ]
+        },
+        "ipAddress": {"type": "string"},
+        "ttl": {"type": "integer"},
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE"
+                ]
+        }
+    },
+    "anyOf": [
+        {"required": ["dnsRuleId"]},
+        {"required": ["domainName"]},
+        {"required": ["ipAddressType"]},
+        {"required": ["ipAddress"]},
+        {"required": ["ttl"]},
+        {"required": ["state"]}
+    ],
+    "additionalProperties": False,
+}

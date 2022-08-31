@@ -863,6 +863,82 @@ class ServiceGet:
                 "\nis_local: "+str(self.is_local)
 
 
+class DnsRule:
+    def __init__(
+        self,
+        dnsRuleId: str = None,
+        domainName: str = None,
+        ipAddressType: IpAddressType = None,
+        ipAddress: str = None,
+        ttl: int = None,
+        state: StateType = None,
+        ):
+
+        self.dnsRuleId = dnsRuleId
+        self.domainName = domainName
+        self.ipAddressType = ipAddressType
+        self.ipAddress = ipAddress
+        self.ttl = ttl
+        self.state = state
+
+    @staticmethod
+    def from_json(data: dict, schema=dns_rule_schema) -> DnsRule:
+        # Validate the json via json schema
+        validate(instance=data, schema=schema)
+        
+        print(f"from_json data: \n{data}")
+        
+
+        kwargs = {}
+        for attribute in data.keys():
+            if attribute == "ipAddressType":
+                kwargs['ipAddressType'] = IpAddressType(data["ipAddressType"])
+            elif attribute == "ttl":
+                kwargs['ttl'] = int(data["ttl"])
+            elif attribute == "state":
+                kwargs['state'] = StateType(data["state"])
+            else:
+                kwargs[attribute] = data[attribute]
+        
+        print("kwargs:\n")
+        pp.pprint(kwargs)
+
+
+        return DnsRule(**kwargs)
+
+        '''
+        if "ttl" in data:
+            ttl = int(data["ttl"])
+        else:
+            ttl = None
+
+        return DnsRule(
+            dnsRuleId=data["dnsRuleId"],
+            domainName=data["domainName"],
+            ipAddressType=IpAddressType(data["ipAddressType"]),
+            ipAddress=data["ipAddress"],
+            ttl=ttl,
+            state=StateType(data["state"])
+        )
+        '''
+
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                dnsRuleId = self.dnsRuleId,
+                domainName = self.domainName,
+                ipAddressType = self.ipAddressType.name if self.ipAddressType is not None else None,
+                ipAddress = self.ipAddress,
+                ttl = self.ttl,
+                state = self.state.name if self.state is not None else None,
+                )
+            )
+    
+    def __str__(self):
+        return str(self.ipAddressType)
+
+
 ####################################
 # Classes used by support api      #
 ####################################
@@ -903,6 +979,10 @@ class AppTerminationConfirmation:
     def __str__(self):
         return str(self.operationAction)
 
+
+#################
+# ERROR CLASSES #
+#################
 
 class Error:
     def __init__(self, type: str, title: str, status: int, detail: str, instance: str):
