@@ -886,9 +886,6 @@ class DnsRule:
         # Validate the json via json schema
         validate(instance=data, schema=schema)
         
-        print(f"from_json data: \n{data}")
-        
-
         kwargs = {}
         for attribute in data.keys():
             if attribute == "ipAddressType":
@@ -900,27 +897,7 @@ class DnsRule:
             else:
                 kwargs[attribute] = data[attribute]
         
-        print("kwargs:\n")
-        pp.pprint(kwargs)
-
-
         return DnsRule(**kwargs)
-
-        '''
-        if "ttl" in data:
-            ttl = int(data["ttl"])
-        else:
-            ttl = None
-
-        return DnsRule(
-            dnsRuleId=data["dnsRuleId"],
-            domainName=data["domainName"],
-            ipAddressType=IpAddressType(data["ipAddressType"]),
-            ipAddress=data["ipAddress"],
-            ttl=ttl,
-            state=StateType(data["state"])
-        )
-        '''
 
 
     def to_json(self):
@@ -1058,5 +1035,16 @@ class TooManyRequests(Error):
             title="Too Many Requests",
             status=429,
             detail=detail,
+            instance="xxx"
+        )
+
+class PreconditionFailed(Error):
+    def __init__(self, e: Exception):
+        Error.__init__(
+            self,
+            type="xxx",
+            title="Precondition Failed",
+            status=412,
+            detail=str(e).split('\n')[0],
             instance="xxx"
         )

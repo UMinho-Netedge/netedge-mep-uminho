@@ -6,7 +6,7 @@ import jsonschema
 sys.path.append("../../")
 from mp1.models import *
 from deepdiff import DeepDiff
-
+from hashlib import md5
 
 class AppDnsRulesController:
 
@@ -50,19 +50,20 @@ class AppDnsRulesController:
         dnsRuleId: str,
         **kwargs
         ):
+
         if kwargs != {}:
             error_msg = "Invalid attribute(s): %s" % (str(kwargs))
             error = BadRequest(error_msg)
             return error.message()
 
         query = dict(appInstanceId=appInstanceId)
-        result = cherrypy.thread_data.db.query_col("appStatus", 
+        app_status = cherrypy.thread_data.db.query_col("appStatus", 
                                                     query, 
                                                     find_one=True)
         # If App exists
-        if result:
+        if app_status:
             # App READY
-            if result['indication'] == IndicationType.READY.name:
+            if app_status['indication'] == IndicationType.READY.name:
                 query = query | {"dnsRuleId": dnsRuleId}
                 result = cherrypy.thread_data.db.query_col("dnsRules", 
                                                             query,
@@ -71,6 +72,19 @@ class AppDnsRulesController:
                 if result:
                     # dnsRuleId ACTIVE 
                     if result['state'] == StateType.ACTIVE.name:
+                        last_modified = result['lastModified']
+
+                        del result['lastModified'], result['appInstanceId']
+
+                        # Generate hash
+                        rule = json.dumps(result)
+                        new_etag = md5(rule.encode('utf-8')).hexdigest()
+                        print(f"\nGET new_etag: {new_etag}")
+
+                        # Add headers
+                        cherrypy.response.headers['ETag'] = new_etag
+                        cherrypy.response.headers['Last-Modified'] = last_modified
+
                         cherrypy.response.status = 200
                         return result
                     else:
@@ -117,11 +131,11 @@ class AppDnsRulesController:
             find_one=True,)
         
         dns_rule_query = dict(appInstanceId=appInstanceId, dnsRuleId=dnsRuleId)
-        dnsRules = cherrypy.thread_data.db.query_col(
+        prev_dns_rule = cherrypy.thread_data.db.query_col(
             "dnsRules",
             query=dns_rule_query,
             find_one=True,)
-        
+
         if appStatus is None:
             error_msg = "Application %s was not found." % (appInstanceId)
             error = NotFound(error_msg)
@@ -132,21 +146,46 @@ class AppDnsRulesController:
             error = Forbidden(error_msg)
             return error.message()
         
-        elif dnsRules is None:
+        elif prev_dns_rule is None:
             error_msg = "DNS rule %s was not found." % (dnsRuleId)
             error = NotFound(error_msg)
             return error.message()
 
         else:
-            del dnsRules['appInstanceId']
-            dns_rule_dict = object_to_mongodb_dict(dnsRules)
+            last_modified = prev_dns_rule['lastModified']
+            print(f"\nPOST last_modified {last_modified}")
+            del prev_dns_rule['appInstanceId'], prev_dns_rule['lastModified']
+
+            dns_rule_dict = object_to_mongodb_dict(prev_dns_rule)
+
+            # ETag of previous document
+            prev_rule = json.dumps(dns_rule_dict)
+            prev_etag = md5(prev_rule.encode('utf-8')).hexdigest()
+            print(f"\nPOST prev_etag {prev_etag}")
+            
+            try:
+                cherrypy.response.headers['ETag'] = prev_etag
+                cherrypy.lib.cptools.validate_etags()
+            except cherrypy.HTTPError as e:
+                error_msg = "ETag mismatch. Please try again." + str(e)
+                error = PreconditionFailed(error_msg)
+                return error.message()
+
+            try:
+                cherrypy.response.headers['Last-Modified'] = last_modified
+                cherrypy.lib.cptools.validate_since()
+            except cherrypy.HTTPError as e:
+                error_msg = "Mismatch on last modification date. Please try again." + str(e)
+                error = PreconditionFailed(error_msg)
+                return error.message()
 
             if ("dnsRuleId" in new_rec):
                 del new_rec["dnsRuleId"]
 
+            new_date = cherrypy.response.headers['Date']
             cherrypy.thread_data.db.update("dnsRules",
                                             query=dns_rule_query,
-                                            newdata=new_rec)
+                                            newdata=new_rec|{"lastModified": new_date})
             
             diff = DeepDiff(new_rec, dns_rule_dict, ignore_order=True)
             cherrypy.log("Dns Rule %s from app %s updated:\n%s"
@@ -154,7 +193,17 @@ class AppDnsRulesController:
 
             cherrypy.response.status = 200
             dns_rule_dict.update(new_rec)
-    
+
+            cherrypy.response.body = dns_rule_dict
+
+            cherrypy.response.headers['Last-Modified'] = cherrypy.response.headers['Date']
+
+            new_rule = json.dumps(dns_rule_dict)
+            new_etag = md5(new_rule.encode('utf-8')).hexdigest()
+            print(f"\nPOST new_etag: {new_etag}")
+            cherrypy.response.headers['ETag'] = new_etag
+            
+            
             return dns_rule_dict
 
         # TODO: 412 Precondition Failed

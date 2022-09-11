@@ -1,9 +1,9 @@
 import sys
 import jsonschema
 
-
 sys.path.append("../../")
 from mp1.models import *
+from hashlib import md5
 
 class TestsController:
     @cherrypy.tools.json_in()
@@ -54,32 +54,40 @@ class TestsController:
             return error.message()
 
         new_rec = dnsRule.to_json()
+
         if new_rec["dnsRuleId"] != dnsRuleId:
             error_msg = "dnsRuleId in request body must match the one in URI."
             error = BadRequest(error_msg)
             return error.message()
 
-        print(f"tests_controller new_rec:\n{new_rec}")
+        #print(f"tests_controller new_rec:\n{new_rec}")
+
+        # Generate hash
+        rule = json.dumps(new_rec)
+        new_etag = md5(rule.encode('utf-8')).hexdigest()
+        print(f"\nPOST new_etag: {new_etag}")
+
+        # Add headers
+        cherrypy.response.headers['ETag'] = new_etag
+        lastModified = cherrypy.response.headers['Date']
+        cherrypy.response.headers['Last-Modified'] = lastModified
+
+
         query = dict(appInstanceId=appInstanceId, dnsRuleId=dnsRuleId)
 
         # to assure correct document override
         if cherrypy.thread_data.db.count_documents("dnsRules", query) > 0:
             cherrypy.thread_data.db.remove("dnsRules", query)
 
-        new_rec = {"appInstanceId": appInstanceId} | new_rec
+        new_rec = {
+            "appInstanceId": appInstanceId, 
+            "lastModified": lastModified,
+            } | new_rec
         cherrypy.thread_data.db.create("dnsRules", new_rec)
-
-        '''
-        if (cherrypy.thread_data.db.count_documents("dnsRules", query) == 0):
-                new_rec = {"appInstanceId": appInstanceId} | new_rec
-                cherrypy.thread_data.db.create("dnsRules", new_rec)
-        else:
-            error_msg = f"Dns rule {dnsRuleId} of app {appInstanceId} already exists."
-            error = BadRequest(error_msg)
-            return error.message()
-        '''
+   
         cherrypy.response.status = 200
         return dnsRule
+
 
     @json_out(cls=NestedEncoder)
     def remove_db_collections(self):
