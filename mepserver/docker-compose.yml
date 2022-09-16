@@ -1,19 +1,15 @@
 version: "3.8"
 
 services:
-  app:
-    image: python:3.9
-    command: bash -c "useradd -m -d /home/netedge netedge && apt update && pip install -r /home/netedge/requirements.txt && python3 /home/netedge/main.py --mongodb_database mep"
-    volumes:
-      - ./:/home/netedge
+  mepserver:
+    image: vinicf/netedge-mepserver
     ports:
       - "8080:8080"
-    environment:
-      USER: netedge
-      PATH: "$PATH:/home/netedge/.local/bin"
 
   mongodb:
     image: mongo
+    ports:
+      - "27017:27017"    
 
   mongo-express:
     image: mongo-express
