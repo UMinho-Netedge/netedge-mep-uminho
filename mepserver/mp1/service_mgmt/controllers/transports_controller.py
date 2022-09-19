@@ -13,7 +13,6 @@
 #     limitations under the License.
 
 import sys
-
 import cherrypy
 
 sys.path.append("../../")

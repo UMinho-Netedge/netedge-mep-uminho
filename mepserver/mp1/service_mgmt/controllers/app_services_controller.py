@@ -26,15 +26,15 @@ from deepdiff import DeepDiff
 class ApplicationServicesController:
     @json_out(cls=NestedEncoder)
     def applications_services_get(
-            self,
-            appInstanceId: str,
-            ser_instance_id: List[str] = None,
-            ser_name: List[str] = None,
-            ser_category_id: str = None,
-            scope_of_locality: str = None,
-            consumed_local_only: bool = None,
-            is_local: bool = None,
-            **kwargs,
+        self,
+        appInstanceId: str,
+        ser_instance_id: List[str] = None,
+        ser_name: List[str] = None,
+        ser_category_id: str = None,
+        scope_of_locality: str = None,
+        consumed_local_only: bool = None,
+        is_local: bool = None,
+        **kwargs,
     ):
         """
         This method retrieves information about a list of mecService resources. This method is typically used in "service availability query" procedure
@@ -64,32 +64,38 @@ class ApplicationServicesController:
             return error.message()
 
         appReg = cherrypy.thread_data.db.query_col(
-            "appStatus",
-            query=dict(appInstanceId=appInstanceId),
-            find_one=True, )
+                "appStatus",
+                query=dict(appInstanceId=appInstanceId),
+                find_one=True,)
 
+        # if app doesn't exist in db
         if appReg is None:
             error_msg = "Invalid 'appInstanceId'. Value not found."
             error = BadRequest(error_msg)
             return error.message()
+        # if app exists but is not READY
+        elif appReg["indication"] != IndicationType.READY.name:
+            error_msg = "App %s isn't in READY state." % (appInstanceId)
+            error = Forbidden(error_msg)
+            return error.message()
+        # if app exists, is ready, but with no services
         elif len(appReg['services']) == 0:
-            print("len(appReg['services']) = 0")
             return list()
-
+        
         # App has services
         inst_ids_lst = []
         for service in appReg['services']:
             inst_ids_lst.append(service['serInstanceId'])
-
+        
         try:
             query = ServiceGet(
-                ser_instance_id=ser_instance_id,
-                ser_name=ser_name,
-                ser_category_id=ser_category_id,
-                scope_of_locality=scope_of_locality,
-                consumed_local_only=consumed_local_only,
-                is_local=is_local)
-
+                        ser_instance_id=ser_instance_id,
+                        ser_name=ser_name,
+                        ser_category_id=ser_category_id,
+                        scope_of_locality=scope_of_locality,
+                        consumed_local_only=consumed_local_only,
+                        is_local=is_local)
+            
             query = query.to_query()
 
             if ser_instance_id != None:
@@ -97,7 +103,7 @@ class ApplicationServicesController:
                     inst_ids_arg_lst = ser_instance_id.split(",")
                     for instance_id in inst_ids_arg_lst:
                         uuid.UUID(str(instance_id))
-
+                    
                 except ValueError:
                     error_msg = f"'ser_instance_id' attempted with invalid format with the value {instance_id}." \
                                 " Value is required in UUID format."
@@ -108,21 +114,22 @@ class ApplicationServicesController:
                 query['serInstanceId'] = instance_ids_lst
             else:
                 query['serInstanceId'] = inst_ids_lst
-
+            
             result = cherrypy.thread_data.db.query_col("services", query)
 
         except jsonschema.exceptions.ValidationError as e:
             if "is not of type" in str(e.message):
-                error_msg = "Invalid type in '" \
-                            + str(camel_to_snake(e.json_path.replace("$.", ""))) \
-                            + "' attribute: " + str(e.message)
+                error_msg = "Invalid type in '"                                 \
+                            + str(camel_to_snake(e.json_path.replace("$.",""))) \
+                            + "' attribute: "+str(e.message)
             else:
-                error_msg = "Either 'ser_instance_id' or 'ser_name' or " \
-                            "'ser_category_id' or none of them shall be present."
+                error_msg = "Either 'ser_instance_id' or 'ser_name' or "        \
+                        "'ser_category_id' or none of them shall be present."
             error = BadRequest(error_msg)
             return error.message()
 
         return list(result)
+
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
@@ -308,10 +315,10 @@ class ApplicationServicesController:
 
     @json_out(cls=NestedEncoder)
     def applicaton_services_get_with_service_id(
-            self,
-            appInstanceId: str,
-            serviceId: str,
-            **kwargs
+        self, 
+        appInstanceId: str, 
+        serviceId: str,
+        **kwargs
     ):
         """
         This method retrieves information about a mecService resource. This method is typically used in "service availability query" procedure
@@ -328,33 +335,40 @@ class ApplicationServicesController:
             return error.message()
 
         appReg = cherrypy.thread_data.db.query_col(
-            "appStatus",
-            query=dict(appInstanceId=appInstanceId),
-            find_one=True, )
+                "appStatus",
+                query=dict(appInstanceId=appInstanceId),
+                find_one=True,)
 
+        # if app doesn't exist in db
         if appReg is None:
             error_msg = "Invalid 'appInstanceId'. Value not found."
             error = BadRequest(error_msg)
             return error.message()
-
+        # if app exists but is not READY
+        elif appReg["indication"] != IndicationType.READY.name:
+            error_msg = "App %s state isn't READY." % (appInstanceId)
+            error = Forbidden(error_msg)
+            return error.message()
+        
         try:
             uuid.UUID(str(serviceId))
         except ValueError:
             error_msg = "Attempted 'serviceId' with invalid format." \
                         " Value is required in UUID format."
             error = BadRequest(error_msg)
-            return error.message()
+            return error.message() 
 
         inst_ids_lst = []
         for service in appReg['services']:
             inst_ids_lst.append(service['serInstanceId'])
-
+        
         if serviceId in inst_ids_lst:
-            query = dict(serInstanceId=str(serviceId), )
+            query = dict(serInstanceId=str(serviceId),)
             data = cherrypy.thread_data.db.query_col("services", query)
             return list(data)
         else:
             return list()
+        
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
