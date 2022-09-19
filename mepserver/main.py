@@ -34,6 +34,9 @@ from mp1.application_support.controllers.app_dns_rules_controller \
 from mp1.application_support.controllers.app_timing_controller \
     import (AppTimingController,)
 
+from mp1.application_support.controllers.app_traffic_rules_controller import AppTrafficRulesController
+
+
 from mp1.databases.database_base import DatabaseBase
 from mp1.databases.dbmongo import MongoDb
 from typing import Type

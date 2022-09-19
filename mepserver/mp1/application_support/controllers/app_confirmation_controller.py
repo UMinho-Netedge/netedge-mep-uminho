@@ -6,10 +6,14 @@ import cherrypy
 sys.path.append("../../")
 from mp1.models import *
 from mp1.enums import IndicationType
-
+from ratelimit import limits, RateLimitException, sleep_and_retry
 
 class ApplicationConfirmationController:
+    ONE_MINUTE = 60
+    MAX_CALLS_PER_MINUTE = 100
+
     @cherrypy.tools.json_in()
+    @limits(calls=MAX_CALLS_PER_MINUTE, period=ONE_MINUTE)
     def application_confirm_ready(self, appInstanceId: str):
         """
         This method may be used by the MEC application instance to notify the MEC platform that it is up and running.
@@ -23,30 +27,47 @@ class ApplicationConfirmationController:
         # Create AppReadyConfirmation from json to validate the input
         appConfirmReady = AppReadyConfirmation.from_json(cherrypy.request.json)
         cherrypy.log(appConfirmReady.indication.name)
+
         if appConfirmReady.indication == IndicationType.READY:
             # Before attempting to insert data into the collection check if the app hasn't already registered itself
-            if (
-                cherrypy.thread_data.db.count_documents(
-                    "appStatus", dict(appInstanceId=appInstanceId)
-                )
-                > 0
-            ):
+            if (cherrypy.thread_data.db.count_documents(
+                    "appStatus", dict(appInstanceId=appInstanceId)) > 0 ):
                 # TODO CAN'T STORE BECAUSE APPINSTANCE ID ALREADY EXISTS
-                return
+                appStatus = cherrypy.thread_data.db.query_col(
+                    "appStatus",
+                    query=dict(appInstanceId=appInstanceId),
+                    find_one=True)
 
-            # Create a dict to be saved in the database
-            appStatusDict = dict(
-                appInstanceId=appInstanceId, **appConfirmReady.to_json()
-            )
+                if appStatus['indication'] == IndicationType.READY.name:
+                    #error_msg = "Application %s is in %s state. This operation not allowed in this state." % (
+                    #appInstanceId, appStatus["indication"])
+                    #error = Forbidden(error_msg)
+                    cherrypy.response.status = 204
+                    #return error.message()
+                    return None
+                else:
+                    appInstanceDict = dict(appInstanceId=appInstanceId)
+                    appStatusDict = dict(
+                        {"indication": IndicationType.READY.name})
 
-            appStatusDict = appStatusDict | {"services":[]}
-            # Indication is still and object and not the value
-            # We could use the json_out internal function but it is overkill for this instance
-            appStatusDict["indication"] = appStatusDict["indication"].name
-            cherrypy.thread_data.db.create("appStatus", appStatusDict)
-            # Set header to 204 - No Content
-            cherrypy.response.status = 204
-            return None
+                    cherrypy.thread_data.db.update("appStatus", appInstanceDict, appStatusDict)
+                    cherrypy.response.status = 204
+                    return None
+            else:
+                # Create a dict to be saved in the database
+                appStatusDict = dict(
+                    appInstanceId=appInstanceId, **appConfirmReady.to_json()
+                )
+
+                appStatusDict = appStatusDict | {"services":[]}
+                # Indication is still and object and not the value
+                # We could use the json_out internal function but it is overkill for this instance
+                appStatusDict["indication"] = appStatusDict["indication"].name
+                cherrypy.thread_data.db.create("appStatus", appStatusDict)
+                # Set header to 204 - No Content
+                cherrypy.response.status = 204
+                return None
+
 
     @cherrypy.tools.json_in()
     def application_confirm_termination(self, appInstanceId: str):

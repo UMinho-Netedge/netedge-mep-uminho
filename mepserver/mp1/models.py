@@ -32,9 +32,7 @@ import pprint # Dictionaries pretty print (for testing)
 class LinkType:
     """
     This type represents a type of link and may be referenced from data structures.
-
     Raises TypeError
-
     Section 6.3.2 - MEC 011
     """
 
@@ -76,21 +74,19 @@ class ProblemDetails:
 class Subscription:
     """
     The MEC application instance's subscriptions.
-
     Section 6.2.2
     """
 
     def __init__(
-        self,
-        href: str,
-        subscriptionType: Union[str, None] = "SerAvailabilityNotificationSubscription",
+            self,
+            href: str,
+            subscriptionType: Union[str, None] = "SerAvailabilityNotificationSubscription",
     ):
         """
         :param href: URI referring to the subscription. (isn't a real URI but the path to something in our MEP)
         :type href: str
         :param subscriptionType: Type of the subscription.
         :type subscriptionType: str
-
         Raises TypeError
         """
         self.href = href
@@ -105,15 +101,14 @@ class Subscription:
 class Links:
     """
     Internal structure to be compliant with MEC 011
-
     Section 6.2.2
     """
 
     def __init__(
-        self,
-        _self: LinkType = None,
-        subscriptions: List[Subscription] = None,
-        liveness: LinkType = None,
+            self,
+            _self: LinkType = None,
+            subscriptions: List[Subscription] = None,
+            liveness: LinkType = None,
     ):
         self.self = _self
         self.subscriptions = subscriptions
@@ -147,7 +142,6 @@ class MecServiceMgmtApiSubscriptionLinkList:
     """
     This type represents a list of links related to currently existing subscriptions for a MEC application instance.
     This information is returned when sending a request to receive current subscriptions.
-
     Section 6.2.2 - MEC 011
     """
 
@@ -169,7 +163,6 @@ class CategoryRef:
     def __init__(self, href: str, id: str, name: str, version: str):
         """
         This type represents the category reference.
-
         :param href: Reference of the catalogue.
         :type href: String
         :param id: Unique identifier of the category.
@@ -178,9 +171,7 @@ class CategoryRef:
         :type name: String
         :param version: Category version.
         :type version: String
-
         Raises TypeError
-
         Section 8.1.5.2
         """
         self.href = validate_uri(href)
@@ -195,12 +186,12 @@ class CategoryRef:
 
 class FilteringCriteria:
     def __init__(
-        self,
-        states: List[ServiceState],
-        isLocal: bool,
-        serInstanceIds: List[str] = None,
-        serNames: List[str] = None,
-        serCategories: List[CategoryRef] = None,
+            self,
+            states: List[ServiceState],
+            isLocal: bool,
+            serInstanceIds: List[str] = None,
+            serNames: List[str] = None,
+            serCategories: List[CategoryRef] = None,
     ):
         """
         :param states: States of the services about which to report events. If the event is a state change, this filter represents the state after the change
@@ -213,11 +204,9 @@ class FilteringCriteria:
         :type serNames: String
         :param serCategories: Categories of services about which to report events.
         :type serCategories: List of CategoryRef
-
         Note serCategories, serInstanceId and serNames are mutually-exclusive
         Raises KeyError when Invalid Enum is provided
         Raises InvalidIdentifier if no identifier is specified
-
         Section 8.1.3.2
         """
         self.states = states
@@ -285,13 +274,12 @@ class FilteringCriteria:
 
 class ServiceAvailabilityNotification:
     def __init__(
-        self,
-        serviceReferences: List[ServiceReferences],
-        _links: Subscription,
-        notificationType: str = "SerAvailabilityNotificationSubscription",
+            self,
+            serviceReferences: List[ServiceReferences],
+            _links: Subscription,
+            notificationType: str = "SerAvailabilityNotificationSubscription",
     ):
         """
-
         :param serviceReferences: List of links to services whose availability has changed.
         :type serviceReferences: List of ServiceReferences
         :param _links: Object containing hyperlinks related to the resource.
@@ -299,7 +287,6 @@ class ServiceAvailabilityNotification:
         :type _links: Subscription
         :param notificationType: hall be set to "SerAvailabilityNotification"
         :type notificationType: String
-
         Section 8.1.4.2
         """
         self.notificationType = notificationType
@@ -308,12 +295,12 @@ class ServiceAvailabilityNotification:
 
     class ServiceReferences:
         def __init__(
-            self,
-            link: LinkType,
-            serInstanceId: str,
-            state: ServiceState,
-            serName: str,
-            changeType: ChangeType,
+                self,
+                link: LinkType,
+                serInstanceId: str,
+                state: ServiceState,
+                serName: str,
+                changeType: ChangeType,
         ):
             self.link = link
             self.serInstanceId = serInstanceId
@@ -353,7 +340,7 @@ class ServiceAvailabilityNotification:
 
     @staticmethod
     def from_json_service_list(
-        data: list[dict], changeType: str, subscription: str = None
+            data: list[dict], changeType: str, subscription: str = None
     ):
         """
         :param data: List containing all services (in json form) that match the filtering criteria
@@ -392,22 +379,19 @@ class ServiceAvailabilityNotification:
 
 class SerAvailabilityNotificationSubscription:
     def __init__(
-        self,
-        callbackReference: str,
-        _links: Links = None,
-        filteringCriteria: FilteringCriteria = None,
+            self,
+            callbackReference: str,
+            _links: Links = None,
+            filteringCriteria: FilteringCriteria = None,
     ):
         """
-
         :param callbackReference: URI selected by the MEC application instance to receive notifications on the subscribed MEC service availability information. This shall be included in both the request and the response.".
         :type callbackReference: String
         :param _links: Object containing hyperlinks related to the resource. This shall only be included in the HTTP responses.
         :type _links: str (String is validated to be a correct URI)
         :param filteringCriteria: Filtering criteria to match services for which events are requested to be reported. If absent, matches all services. All child attributes are combined with the logical "AND" operation.
         :type filteringCriteria: FilteringCriteria
-
         Raises TypeError
-
         Section 8.1.3.2
         """
         self.callbackReference = validate_uri(callbackReference)
@@ -451,15 +435,12 @@ class OAuth2Info:
     def __init__(self, grantTypes: List[GrantTypes], tokenEndpoint: str):
         """
         This type represents security information related to a transport.
-
         :param grantTypes: List of supported OAuth 2.0 grant types
         :type grantTypes: List[GrantTypes] Min size 1 Max Size 4
         :param tokenEndpoint: The Token Endpoint
         :type tokenEndpoint: String
-
         :Note: grantTypes can be between 1 and 4
         :Note: tokenEndpoint seems required in swagger but isn't in MEC011 Specification
-
         Section 8.1.5.4
         Raises InvalidGrantType
         """
@@ -484,7 +465,6 @@ class SecurityInfo:
     def __init__(self, oAuth2Info: OAuth2Info):
         """
         :param oAuth2Info: Parameters related to use of OAuth 2.0.
-
         Section 8.1.5.4
         """
         self.oAuth2Info = oAuth2Info
@@ -508,7 +488,6 @@ class EndPointInfo:
             """
             :param uri: Entry point information of the service as string, formatted according to URI syntax
             :type uri: String
-
             Raises TypeError
             """
             self.uris = [validate_uri(uri) for uri in uris]
@@ -562,16 +541,16 @@ class EndPointInfo:
 
 class TransportInfo:
     def __init__(
-        self,
-        id: str,
-        name: str,
-        type: TransportType,
-        version: str,
-        endpoint: [EndPointInfo.Addresses, EndPointInfo.Uris, EndPointInfo.Alternative],
-        security: SecurityInfo,
-        description: str = "",
-        implSpecificInfo: str = "",
-        protocol: str = "HTTP",
+            self,
+            id: str,
+            name: str,
+            type: TransportType,
+            version: str,
+            endpoint: [EndPointInfo.Addresses, EndPointInfo.Uris, EndPointInfo.Alternative],
+            security: SecurityInfo,
+            description: str = "",
+            implSpecificInfo: str = "",
+            protocol: str = "HTTP",
     ):
         """
         :param id: The identifier of this transport.
@@ -592,7 +571,6 @@ class TransportInfo:
         :type protocol: String
         :param description: Human-readable description of this transport.
         :type description: String
-
         Section 8.1.2.3
         """
         self.id = id
@@ -671,7 +649,6 @@ class ServiceInfo:
         :param livenessInterval: Interval (in seconds) between two consecutive "heartbeat" messages
         :type livenessInterval: Integer
         Note serCategories, serInstanceId and serNames are mutually-exclusive
-
         Section 8.1.2.2
         """
         self.serInstanceId = serInstanceId
@@ -739,7 +716,6 @@ class ServiceInfo:
         Used with the $or mongodb operator which requires a list of dictionaries for each "or" operation
         Example we want to get an object that can have serName="a" or serInstanceId="b"
         {$or:[{"serName":a},{"serInstanceId":"b"}]}
-
         Due to serInstancesIds,serNames,serCategories and states being addressable by various values we transform
         them into a list so that we can use the $in operator
         """
@@ -922,6 +898,7 @@ class Error:
             instance=self.instance
         )
 
+
 class BadRequest(Error):
     def __init__(self, e: Exception):
         Error.__init__(
@@ -930,19 +907,9 @@ class BadRequest(Error):
             title="Incorrect parameters were passed to the request",
             status=400,
             detail=str(e).split('\n')[0],
-            instance=cherrypy.request.path_info
+            instance="xxx"
         )
 
-class Unauthorized(Error):
-    def __init__(self, detail: str = "Unauthorized operation"):
-        Error.__init__(
-            self,
-            type="about:blank",
-            title="Client did not submit the appropriate credentials",
-            status=401,
-            detail=detail,
-            instance=cherrypy.request.path_info
-        )
 
 class Forbidden(Error):
     def __init__(self, detail : str = "This operation not allowed"):
@@ -963,29 +930,30 @@ class NotFound(Error):
             title="The URI cannot be mapped to a valid resource URI.",
             status=404,
             detail=detail,
-            instance=cherrypy.request.path_info
+            instance="xxx"
         )
 
+
 class Conflict(Error):
-    def __init__(self, detail : str = "This operation not allowed"):
+    def __init__(self, detail: str = "This operation not allowed"):
         Error.__init__(
             self,
             type="about:blank",
             title="The operation is not allowed due to a conflict with the state of the resource",
             status=409,
             detail=detail,
-            instance=cherrypy.request.path_info
+            instance="xxx"
         )
 
-class PreconditionFailed(Error):
-    def __init__(self, detail : str = "This operation not allowed"):
+class Precondition(Error):
+    def __init__(self, detail: str = "Precondition Failed"):
         Error.__init__(
             self,
             type="about:blank",
             title="The operation is not allowed due to a conflict with the state of the resource",
             status=412,
             detail=detail,
-            instance=cherrypy.request.path_info
+            instance="xxx"
         )
 
 class URITooLong(Error):
@@ -1009,3 +977,180 @@ class TooManyRequests(Error):
             detail=detail,
             instance=cherrypy.request.path_info
         )
+
+
+class TrafficFilter:
+    def __init__(self, srcAddress: List[str] = None,
+                 dstAddress: List[str] = None,
+                 srcPort: List[str] = None,
+                 dstPort: List[str] = None,
+                 protocol: List[str] = None,
+                 token: List[str] = None,
+                 srcTunnelAddress: List[str] = None,
+                 tgtTunnelAddress: List[str] = None,
+                 srcTunnelPort: List[str] = None,
+                 dstTunnelPort: List[str] = None,
+                 qCI: int = 0,
+                 dSCP: int = 0,
+                 tC: int = 0):
+
+        self.srcAddress = srcAddress
+        self.dstAddress = dstAddress
+        self.srcPort = srcPort
+        self.dstPort = dstPort
+        self.protocol = protocol
+        self.token = token
+        self.srcTunnelAddress = srcTunnelAddress
+        self.tgtTunnelAddress = tgtTunnelAddress
+        self.srcTunnelPort = srcTunnelPort
+        self.dstTunnelPort = dstTunnelPort
+        self.qCI = qCI
+        self.dSCP = dSCP
+        self.tC = tC
+
+    @staticmethod
+    def from_json(data: dict) -> TrafficFilter:
+
+        # First validate the json via jsonschema
+        validate(instance=data, schema=traffic_filter_schema)
+
+        srcAddress = data.pop("srcAddress")
+        dstAddress = data.pop("dstAddress")
+        srcPort = data.pop("srcPort")
+        dstPort = data.pop("dstPort")
+        protocol = data.pop("protocol")
+        token = data.pop("token")
+        srcTunnelAddress = data.pop("srcTunnelAddress")
+        tgtTunnelAddress = data.pop("tgtTunnelAddress")
+        srcTunnelPort = data.pop("srcTunnelPort")
+        dstTunnelPort = data.pop("dstTunnelPort")
+        qCI = data.pop("qCI")
+        dSCP = data.pop("dSCP")
+        tC = data.pop("tC")
+
+        return TrafficFilter(srcAddress = srcAddress, dstAddress = dstAddress, srcPort = srcPort,
+                             dstPort = dstPort, protocol = protocol, token = token,
+                             srcTunnelAddress = srcTunnelAddress, tgtTunnelAddress = tgtTunnelAddress,
+                             srcTunnelPort = srcTunnelPort, dstTunnelPort = dstTunnelPort, qCI = qCI,
+                             dSCP = dSCP, tC = tC)
+
+    def to_json(self):
+        return ignore_none_value(dict(srcAddress = self.srcAddress, dstAddress = self.dstAddress, srcPort = self.srcPort,
+                                      dstPort = self.dstPort, protocol = self.protocol, token = self.token,
+                                      srcTunnelAddress = self.srcTunnelAddress, tgtTunnelAddress = self.tgtTunnelAddress,
+                                      srcTunnelPort = self.srcTunnelPort, dstTunnelPort = self.dstTunnelPort,
+                                      qCI = self.qCI, dSCP = self.dSCP, tC = self.tC))
+
+class TunnelInfo:
+
+    def __init__(self, tunnelType: str, tunnelDstAddress: str,
+                 tunnelSrcAddress: str):
+
+        self.tunnelType = tunnelType
+        self.tunnelDstAddress = tunnelDstAddress
+        self.tunnelSrcAddress = tunnelSrcAddress
+
+    @staticmethod
+    def from_json(data: dict) -> TunnelInfo:
+        # First validate the json via jsonschema
+        validate(instance=data, schema=tunnel_info_schema)
+
+        tunnelType = data.pop("tunnelType")
+        tunnelDstAddress = data.pop("tunnelDstAddress")
+        tunnelSrcAddress = data.pop("tunnelSrcAddress")
+
+        return TunnelInfo(tunnelType = tunnelType, tunnelDstAddress = tunnelDstAddress,
+                          tunnelSrcAddress = tunnelSrcAddress)
+
+    def to_json(self):
+        return ignore_none_value(dict(tunnelType = self.tunnelType,
+                                      tunnelDstAddress = self.tunnelDstAddress,
+                                      tunnelSrcAddress = self.tunnelSrcAddress) )
+
+
+class DestinationInterface:
+    def __init__(self, interface_type: str,
+                 tunnelInfo: TunnelInfo = None,
+                 srcMacAddress: str = '',
+                 dstMacAddress: str = '',
+                 dstIpAddress: str= ''):
+
+        self.interface_type = interface_type
+        self.tunnelInfo = tunnelInfo
+        self.srcMacAddress = srcMacAddress
+        self.dstMacAddress = dstMacAddress
+        self.dstIpAddress = dstIpAddress
+
+    @staticmethod
+    def from_json(data: dict) -> DestinationInterface:
+        # First validate the json via jsonschema
+        validate(instance=data, schema=destination_interface_schema)
+
+        interface_type = data.pop("interface_type")
+        tunnelInfo = TunnelInfo(data.pop("tunnelInfo"))
+        srcMacAddress = data.pop("srcMacAddress")
+        dstMacAddress = data.pop("dstMacAddress")
+        dstIpAddress = data.pop("dstIpAddress")
+
+        return DestinationInterface(interface_type = interface_type, tunnelInfo = tunnelInfo,
+                                    srcMacAddress = srcMacAddress, dstMacAddress = dstMacAddress,
+                                    dstIpAddress = dstIpAddress)
+
+    def to_json(self):
+        return ignore_none_value(dict(interface_type = self.interface_type,
+                                      tunnelInfo = self.tunnelInfo, srcMacAddress = self.srcMacAddress,
+                                      dstMacAddress = self.dstMacAddress, dstIpAddress = self.dstIpAddress) )
+
+
+
+class TrafficRules:
+    def __init__(self, trafficRuleId: str, filterType: str,
+                 priority: int,
+                 trafficFilter: List[TrafficFilter] = None,
+                 action: str = '',
+                 dstInterface: List[DestinationInterface] = None,
+                 state: str = ''):
+
+        self.trafficRuleId = trafficRuleId
+        self.filterType = filterType
+        self.priority = priority
+        self.trafficFilter = trafficFilter
+        self.action = action
+        self.dstInterface = dstInterface
+        self.state = state
+
+
+    @staticmethod
+    def from_json(data: dict) -> TrafficRules:
+        # First validate the json via jsonschema
+
+        cherrypy.log("validade tunnelInfo")
+        validate(instance = data["dstInterface"][0]["tunnelInfo"], schema = tunnel_info_schema)
+
+        cherrypy.log("validate trafficFilter")
+        validate(instance = data["trafficFilter"][0], schema = traffic_filter_schema)
+
+        cherrypy.log("validate dstInterface")
+        validate(instance=data["dstInterface"][0], schema=destination_interface_schema)
+
+        cherrypy.log("validate traffic rule")
+        validate(instance=data, schema=traffic_rule_schema)
+
+        trafficRuleId = data.pop("trafficRuleId")
+        filterType = data.pop("filterType")
+        priority = data.pop("priority")
+        trafficFilter = TrafficFilter(data.pop("trafficFilter"))
+        action = data.pop("action")
+        dstInterface = DestinationInterface(data.pop("dstInterface"))
+        state = data.pop("state")
+
+
+        return TrafficRules(trafficRuleId = trafficRuleId, filterType = filterType,
+                            priority = priority, trafficFilter = trafficFilter, action = action,
+                            dstInterface = dstInterface, state = state)
+
+    def to_json(self):
+        return ignore_none_value(dict(trafficRuleId = self.trafficRuleId, filterType = self.filterType,
+                                      priority = self.priority, trafficFilter = self.trafficFilter,
+                                      action = self.action, dstInterface = self.dstInterface, state = self.state) )
+
