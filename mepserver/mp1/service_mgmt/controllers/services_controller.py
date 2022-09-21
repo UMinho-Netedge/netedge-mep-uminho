@@ -35,7 +35,6 @@ class ServicesController:
     ):
         """
         This method retrieves information about a list of mecService resources. This method is typically used in "service availability query" procedure
-
         Query Params
         :param ser_instance_id: A MEC application instance may use multiple ser_instance_ids as an input parameter to query the availability of a list of MEC service instances. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
         :type ser_instance_id: List[String]
@@ -115,16 +114,6 @@ class ServicesController:
             # remove them from the result (list of all services)
             res = []
             for idx, service_info in enumerate(result):
-                '''
-                print(f"result len: {len(result)}")
-                print(f"enumerate len: {len(enumerate(result))}")
-                print(f"idx: {idx}")
-                print(f"service_info:\n{service_info}")
-                
-                if service_info["serInstanceId"] in servs_to_del:
-                    del res[idx]
-                    print("Hurray. I found one service to delete.")
-                '''
                 if service_info["serInstanceId"] not in servs_to_del:
                     res.append(service_info)
             print(f"result:\n{res}")
@@ -142,10 +131,8 @@ class ServicesController:
     ):
         """
         This method retrieves information about a mecService resource. This method is typically used in "service availability query" procedure
-
         :param serviceId: Represents a MEC service instance.
         :type serviceId: String
-
         :return: ServiceInfo or ProblemDetails
         """
         if kwargs != {}:

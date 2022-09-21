@@ -39,7 +39,7 @@ links_schema = {
     "properties": {
         "self": linktype_schema,
         "subscriptions": {"type": "array", "items": subscription_schema},
-        "liveness": linktype_schema,
+        "liveness": linktype_schema, #não encontrei no MEC011
     },
     "required": ["self"],
     "additionalProperties": False,
@@ -97,9 +97,10 @@ filteringcriteria_schema = {
 seravailabilitynotificationsubscription_schema = {
     "type": "object",
     "properties": {
-        "callbackReference": {"type": "string"},
-        "filteringCriteria": filteringcriteria_schema,
         "subscriptionType": {"type": "string"},
+        "callbackReference": {"type": "string"},
+        "_links": links_schema, #changed
+        "filteringCriteria": filteringcriteria_schema,
     },
     "additionalProperties": False,
     "required": ["callbackReference"],
@@ -234,7 +235,14 @@ appreadyconfirmation_schema = {
 
 appterminationconfirmation_schema = {
     "type": "object",
-    "properties": {"operationAction": {"type": "string"}},
+    "properties": {
+        "operationAction": {
+            "enum": [
+                "STOPPING",
+                "TERMINATING"
+                ]
+        }
+    },
     "required": ["operationAction"],
     "additionalProperties": False,
 }
@@ -269,5 +277,60 @@ service_get_schema = {
             "not": {"required": ["serInstanceId"]}
             }
     },
+    "additionalProperties": False,
+}
+
+dns_rule_schema = {
+    "type": "object",
+    "properties": {
+        "dnsRuleId": {"type": "string"},
+        "domainName": {"type": "string"},
+        "ipAddressType": {
+            "enum": [
+                "IP_V6",
+                "IP_V4"
+                ]
+        },
+        "ipAddress": {"type": "string"},
+        "ttl": {"type": "integer"},
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE"
+                ]
+        }
+    },
+    "required": ["dnsRuleId", "domainName", "ipAddressType", "state"],
+    "additionalProperties": False,
+}
+
+dns_rule_put_schema = {
+    "type": "object",
+    "properties": {
+        "dnsRuleId": {"type": "string"},
+        "domainName": {"type": "string"},
+        "ipAddressType": {
+            "enum": [
+                "IP_V6",
+                "IP_V4"
+                ]
+        },
+        "ipAddress": {"type": "string"},
+        "ttl": {"type": "integer"},
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE"
+                ]
+        }
+    },
+    "anyOf": [
+        {"required": ["dnsRuleId"]},
+        {"required": ["domainName"]},
+        {"required": ["ipAddressType"]},
+        {"required": ["ipAddress"]},
+        {"required": ["ttl"]},
+        {"required": ["state"]}
+    ],
     "additionalProperties": False,
 }

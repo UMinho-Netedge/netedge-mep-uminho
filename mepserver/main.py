@@ -13,26 +13,31 @@
 #     limitations under the License.
 
 # Service Management Controllers
-from mp1.service_mgmt.controllers.app_subscriptions_controller \
+from mp1.service_mgmt.controllers.app_subscriptions_controller                  \
     import (ApplicationSubscriptionsController,)
-from mp1.service_mgmt.controllers.app_services_controller \
+from mp1.service_mgmt.controllers.app_services_controller                       \
     import (ApplicationServicesController,)
-from mp1.service_mgmt.controllers.services_controller \
+from mp1.service_mgmt.controllers.services_controller                           \
     import (ServicesController,)
-from mp1.service_mgmt.controllers.transports_controller \
+from mp1.service_mgmt.controllers.transports_controller                         \
     import (TransportsController,)
-from mp1.service_mgmt.controllers.callbacks_controller \
+from mp1.service_mgmt.controllers.callbacks_controller                          \
     import (CallbackController,)
+from mp1.tests.tests_controller                                                 \
+    import (TestsController,)
 
 # Application Support Controllers
-from mp1.application_support.controllers.app_traffic_rules_controller \
+from mp1.application_support.controllers.app_traffic_rules_controller           \
     import (AppTrafficRulesController,)
-from mp1.application_support.controllers.app_confirmation_controller \
+from mp1.application_support.controllers.app_confirmation_controller            \
     import (ApplicationConfirmationController,)
-from mp1.application_support.controllers.app_dns_rules_controller \
+from mp1.application_support.controllers.app_dns_rules_controller               \
     import (AppDnsRulesController,)
-from mp1.application_support.controllers.app_timing_controller \
+from mp1.application_support.controllers.app_timing_controller                  \
     import (AppTimingController,)
+
+from mp1.application_support.controllers.app_traffic_rules_controller import AppTrafficRulesController
+
 
 from mp1.databases.database_base import DatabaseBase
 from mp1.databases.dbmongo import MongoDb
@@ -70,6 +75,42 @@ def main(database: Type[DatabaseBase]):
         route="/applications/:appInstanceId/confirm_termination",
         conditions=dict(method=["POST"]),
     )
+
+    ############################################################################
+    # TODO: Remove this part before deployment
+
+    #############################
+    # Tests Controller #
+    #
+    # Only used for tests!
+    #############################
+    tests_dispatcher = cherrypy.dispatch.RoutesDispatcher()
+
+    tests_dispatcher.connect(
+        name="Update MEC App Status",
+        action="mecAppStatus_update",
+        controller=TestsController,
+        route="/applications/:appInstanceId/update_status",
+        conditions=dict(method=["PATCH"]),
+    )
+
+    tests_dispatcher.connect(
+        name="Post MEC App Dns Rule",
+        action="dns_rule_post",
+        controller=TestsController,
+        route="/applications/:appInstanceId/dns_rules/:dnsRuleId",
+        conditions=dict(method=["POST"]),
+    )
+
+    tests_dispatcher.connect(
+        name="Remove all collections from database",
+        action="remove_db_collections",
+        controller=TestsController,
+        route="/applications/remove_all",
+        conditions=dict(method=["POST"]),
+    )
+
+    ############################################################################
 
     #################################
     # App Traffic Rules Controller  #
@@ -292,9 +333,15 @@ def main(database: Type[DatabaseBase]):
     mgmt_conf = {"/": {"request.dispatch": mgmt_dispatcher}}
     cherrypy.tree.mount(None, "/mec_service_mgmt/v1", config=mgmt_conf)
 
+    # Solely for tests (extra mp1)
+    tests_conf = {"/": {"request.dispatch": tests_dispatcher}}
+    cherrypy.tree.mount(None, "/mec_tests/v1", config=tests_conf)
+
+
     # Config 404 and 403 landing pages
     cherrypy.config.update({'error_page.404': error_page_404})
     cherrypy.config.update({'error_page.403': error_page_403})
+    cherrypy.config.update({'error_page.400': error_page_400})
 
 
     ######################################
@@ -320,6 +367,18 @@ def error_page_403(status, message, traceback, version):
         type="xxxx",
         title="Forbidden.",
         status=403,
+        detail="The operation is not allowed given the current status of the resource.",
+        instance="xxx"
+    )
+    return json.dumps(errorMessage.to_json())
+
+def error_page_400(status, message, traceback, version):
+    response = cherrypy.response
+    response.headers['Content-Type'] = 'application/json'
+    errorMessage = ProblemDetails(
+        type="xxxx",
+        title="Forbidden.",
+        status=400,
         detail="The operation is not allowed given the current status of the resource.",
         instance="xxx"
     )

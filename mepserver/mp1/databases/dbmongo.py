@@ -48,6 +48,18 @@ class MongoDb(DatabaseBase):
         data_to_be_removed = collection.delete_one(query)
         return data_to_be_removed
 
+    def remove_many(self, col: str, query: dict):
+        """
+        Remove multiple documents from the database
+        :param col: collection
+        :param query: query to match one or more parameters of the data to be removed
+        :return: documents removed from database
+        """
+        # Get the collection
+        collection = self.client[col]
+        data_to_be_removed = collection.delete_many(query)
+        return data_to_be_removed
+
     def update(self, col: str, query: dict, newdata: dict):
         """
         Updates an entry at database

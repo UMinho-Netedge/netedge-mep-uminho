@@ -61,9 +61,45 @@ class OperationActionType(Enum):
     STOPPING = "STOPPING"
     TERMINATING = "TERMINATING"
 
+    def __str__(self):
+        return self.name
+
 
 class ChangeType(Enum):
     ADDED = "ADDED"  # New service was added
     REMOVED = "REMOVED"  # The service was removed
     STATE_CHANGED = "STATE_CHANGED"  # Only the state of the service was changed
     ATTRIBUTES_CHANGED = "ATTRIBUTES_CHANGED"  # At least one attribute of the service other than state was changed. The change may or may not include changing the state
+
+class FilterType(Enum):
+    FLOW = "FLOW"
+    PACKET =  "PACKET"
+
+class TrafficRuleAction(Enum):
+    DROP = "DROP"
+    FORWARD_DECAPSULATED = "FORWARD_DECAPSULATED"
+    FORWARD_ENCAPSULATED = "FORWARD_ENCAPSULATED"
+    PASSTHROUGH = "PASSTHROUGH"
+    DUPLICATE_DECAPSULATED = "DUPLICATE_DECAPSULATED"
+    DUPLICATE_ENCAPSULATED = "DUPLICATE_ENCAPSULATED"
+
+class TrafficRuleState(Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+
+class InterfaceType(Enum):
+    TUNNEL = "TUNNEL"
+    MAC = "MAC"
+    IP = "IP"
+
+class TunnelType(Enum):
+    GTP_U = "GTP_U"
+    GRE = "GRE"
+
+class IpAddressType(Enum):
+    IP_V4 = "IP_V4"
+    IP_V6 = "IP_V6"
+
+class StateType(Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
