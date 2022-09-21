@@ -39,7 +39,7 @@ links_schema = {
     "properties": {
         "self": linktype_schema,
         "subscriptions": {"type": "array", "items": subscription_schema},
-        "liveness": linktype_schema,
+        "liveness": linktype_schema, #não encontrei no MEC011
     },
     "required": ["self"],
     "additionalProperties": False,
@@ -97,9 +97,10 @@ filteringcriteria_schema = {
 seravailabilitynotificationsubscription_schema = {
     "type": "object",
     "properties": {
-        "callbackReference": {"type": "string"},
-        "filteringCriteria": filteringcriteria_schema,
         "subscriptionType": {"type": "string"},
+        "callbackReference": {"type": "string"},
+        "_links": links_schema, #changed
+        "filteringCriteria": filteringcriteria_schema,
     },
     "additionalProperties": False,
     "required": ["callbackReference"],

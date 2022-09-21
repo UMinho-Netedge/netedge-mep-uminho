@@ -36,16 +36,19 @@ from mp1.application_support.controllers.app_dns_rules_controller               
 from mp1.application_support.controllers.app_timing_controller                  \
     import (AppTimingController,)
 
+from mp1.application_support.controllers.app_traffic_rules_controller import AppTrafficRulesController
+
+
 from mp1.databases.database_base import DatabaseBase
 from mp1.databases.dbmongo import MongoDb
 from typing import Type
 import cherrypy
 import argparse
 from mp1.utils import check_port
-from mp1.models import ProblemDetails
+from mp1.models import *
 import json
 
-
+@json_out(cls=NestedEncoder)
 def main(database: Type[DatabaseBase]):
 
     ##################################
@@ -352,16 +355,10 @@ def main(database: Type[DatabaseBase]):
 
 
 def error_page_404(status, message, traceback, version):
-    response = cherrypy.response
-    response.headers['Content-Type'] = 'application/json'
-    errorMessage = ProblemDetails(
-        type="xxxx",
-        title="Not Found.",
-        status=404,
-        detail="URI %s cannot be mapped to a valid resource." % cherrypy.request.path_info,
-        instance="xxx"
-    )
-    return json.dumps(errorMessage.to_json())
+    error_msg = "URI %s cannot be mapped to a valid resource." % cherrypy.request.path_info
+    error = NotFound(error_msg)
+    cherrypy.response.headers["Content-Type"] = "application/problem+json"
+    return json.dumps(error.message().to_json())
 
 def error_page_403(status, message, traceback, version):
     response = cherrypy.response

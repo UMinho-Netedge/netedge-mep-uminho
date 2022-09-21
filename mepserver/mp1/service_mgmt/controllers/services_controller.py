@@ -35,7 +35,6 @@ class ServicesController:
     ):
         """
         This method retrieves information about a list of mecService resources. This method is typically used in "service availability query" procedure
-
         Query Params
         :param ser_instance_id: A MEC application instance may use multiple ser_instance_ids as an input parameter to query the availability of a list of MEC service instances. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
         :type ser_instance_id: List[String]
@@ -132,10 +131,8 @@ class ServicesController:
     ):
         """
         This method retrieves information about a mecService resource. This method is typically used in "service availability query" procedure
-
         :param serviceId: Represents a MEC service instance.
         :type serviceId: String
-
         :return: ServiceInfo or ProblemDetails
         """
         if kwargs != {}:

@@ -12,6 +12,7 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
+from ast import arg
 from json import JSONEncoder
 import json
 from enum import Enum
@@ -23,6 +24,7 @@ from rfc3986 import is_valid_uri
 from typing import List
 import argparse
 from abc import ABC, abstractmethod
+from . import models
 import re
 import pprint as pp
 
@@ -130,7 +132,10 @@ def json_out(cls):
     def json_out_wrapper(func):
         def inner(*args, **kwargs):
             object_to_be_serialized = func(*args, **kwargs)
-            cherrypy.response.headers["Content-Type"] = "application/json"
+            if isinstance(object_to_be_serialized, models.ProblemDetails):
+                cherrypy.response.headers["Content-Type"] = "application/problem+json"
+            else:
+                cherrypy.response.headers["Content-Type"] = "application/json"
             return json.dumps(object_to_be_serialized, cls=cls).encode("utf-8")
 
         return inner
