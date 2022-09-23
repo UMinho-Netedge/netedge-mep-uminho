@@ -1,4 +1,4 @@
-# Copyright 2022 Instituto de Telecomunicações - Aveiro
+# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -342,7 +342,6 @@ def main(database: Type[DatabaseBase]):
     cherrypy.config.update({'error_page.404': error_page_404})
     cherrypy.config.update({'error_page.403': error_page_403})
     cherrypy.config.update({'error_page.400': error_page_400})
-
 
     ######################################
     # Database Connection to all threads #

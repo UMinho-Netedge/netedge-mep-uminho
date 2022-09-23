@@ -12,19 +12,31 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-import sys
-import cherrypy
-import time
-
-sys.path.append("../../")
-from mp1.models import *
-
-
-class AppTimingController:
-    @json_out(cls=NestedEncoder)
-    def timing_capabilites_get(self):
-        pass
-
-    # For now just for test
-    def current_time_get(self):
-        return time.time()
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    mep.service: mongo-express
+  name: mongo-express
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      mep.service: mongo-express
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        mep.service: mongo-express
+    spec:
+      containers:
+        - env:
+            - name: ME_CONFIG_MONGODB_SERVER
+              value: mongodb
+          image: mongo-express
+          name: mongo-express
+          ports:
+            - containerPort: 8081
+          resources: {}
+      restartPolicy: Always
+status: {}

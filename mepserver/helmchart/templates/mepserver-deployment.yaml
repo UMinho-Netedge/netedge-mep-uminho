@@ -12,19 +12,28 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-import sys
-import cherrypy
-import time
-
-sys.path.append("../../")
-from mp1.models import *
-
-
-class AppTimingController:
-    @json_out(cls=NestedEncoder)
-    def timing_capabilites_get(self):
-        pass
-
-    # For now just for test
-    def current_time_get(self):
-        return time.time()
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    mep.service: mepserver
+  name: mepserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      mep.service: mepserver
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        mep.service: mepserver
+    spec:
+      containers:
+        - image: vinicf/netedge-mepserver
+          name: mepserver
+          ports:
+            - containerPort: 8080
+          resources: {}
+      restartPolicy: Always
+status: {}
