@@ -103,3 +103,7 @@ class IpAddressType(Enum):
 class StateType(Enum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
+
+class TimeSourceStatus(Enum):
+    TRACEABLE = "TRACEABLE"
+    UNTRACEABLE = "UNTRACEABLE"

@@ -12,19 +12,47 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
+import json
 import sys
+from time import time_ns
 import cherrypy
-import time
 
 sys.path.append("../../")
 from mp1.models import *
+import uuid
+import jsonschema
 
 
 class AppTimingController:
     @json_out(cls=NestedEncoder)
-    def timing_capabilites_get(self):
-        pass
+    def timing_capabilites_get(self, **kwargs):
+        """"
+        This method retrieves the information of the platform's timing capabilities which corresponds to the timing capabilities query
+        
+        :return: TimingCaps or ProblemDetails
+        """
+
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+
+        timmingCaps = TimingCaps()
+        return timmingCaps
 
     # For now just for test
-    def current_time_get(self):
-        return time.time()
+    @json_out(cls=NestedEncoder)
+    def current_time_get(self, **kwargs):
+        """"
+        This method retrieves the information of the platform's current time which corresponds to the get platform time procedure
+        
+        :return: CurrentTime or ProblemDetails
+        """
+
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+
+        currentTime = CurrentTime(time_ns(), TimeSourceStatus.TRACEABLE)
+        return currentTime

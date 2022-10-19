@@ -334,3 +334,19 @@ dns_rule_put_schema = {
     ],
     "additionalProperties": False,
 }
+
+current_time_schema = {
+    "type": "object",
+    "properties": {
+        "seconds": {"type": "integer"},
+        "nanoseconds": {"type": "integer"},
+        "timeSourceStatus": {
+            "enum": [
+                "TRACEABLE",
+                "NONTRACEABLE"
+                ]
+        }
+    },
+    "required": ["seconds", "nanoseconds", "timeSourceStatus"],
+    "additionalProperties": False,
+}
