@@ -148,18 +148,30 @@ class ApplicationServicesController:
         # The process of generating the class allows for "automatic" validation of the json
         try:
             serviceInfo = ServiceInfo.from_json(data)
+
+            # checks if there is a service info in the request, if it does not have it, create one
+            # Add serInstanceId (uuid) to serviceInfo according to Section 8.1.2.2
+            # serInstaceId is used as serviceId appServices
+            if serviceInfo.serInstanceId is None:
+                serviceInfo.serInstanceId = str(uuid.uuid4())
+
             # Add _links data to serviceInfo
             server_self_referencing_uri = cherrypy.url(
                 qs=cherrypy.request.query_string, relative="server"
             )
             _links = Links(
                 liveness=LinkType(
-                    f"{server_self_referencing_uri}/{serviceInfo.serInstanceId}/liveness"
+                    f"/mec_service_mgmt/v1/liveness/{appInstanceId}/{serviceInfo.serInstanceId}"
                 )
             )
             serviceInfo._links = _links
             notify_changeType = None
+
+            if serviceInfo.livenessInterval is None:
+                serviceInfo.livenessInterval = 0
+
             # TODO serCategory IF NOT PRESENT NEEDS TO BE SET BY MEP (SOMEHOW TELL ME ETSI)
+            # Should receive it from MEPM
 
         except (TypeError, jsonschema.exceptions.ValidationError) as e:
             error = BadRequest(e)
@@ -187,6 +199,7 @@ class ApplicationServicesController:
                 if appService["serName"] == serviceInfo.serName:
                     hasService = True
                     appService["state"] = serviceInfo.state.name
+
                     break
 
             # If it already exists updates service state
@@ -235,13 +248,18 @@ class ApplicationServicesController:
                 # The service was newly added.
                 notify_changeType = ChangeType.ADDED
 
-                # Add serInstanceId (uuid) to serviceInfo according to Section 8.1.2.2
-                # serInstaceId is used as serviceId appServices
-                serviceInfo.serInstanceId = str(uuid.uuid4())
-
                 appStatus["services"].append({"serName": serviceInfo.serName,
                                               "serInstanceId": serviceInfo.serInstanceId,
-                                              "state": serviceInfo.state.name})
+                                              "state": serviceInfo.state.name,
+                                              "liveness": {
+                                                    "interval": serviceInfo.livenessInterval,
+                                                    "update": 0
+                                              }, 
+                                              "timeStamp": {
+                                                    "seconds": 0,
+                                                    "nanoseconds": 0
+                                                }
+                                              })
 
                 # updates appStatus with new service
                 cherrypy.thread_data.db.update(

@@ -13,6 +13,8 @@
 #     limitations under the License.
 
 from __future__ import annotations
+from os import times
+import string
 from typing import List, Union
 from jsonschema import validate
 import cherrypy
@@ -1213,3 +1215,99 @@ class TrafficRules:
         return ignore_none_value(dict(trafficRuleId = self.trafficRuleId, filterType = self.filterType,
                                       priority = self.priority, trafficFilter = self.trafficFilter,
                                       action = self.action, dstInterface = self.dstInterface, state = self.state) )
+
+
+class CurrentTime:
+    def __init__(self, timeInfo: int, traceability: TimeSourceStatus = TimeSourceStatus.UNTRACEABLE):
+        self.seconds = timeInfo
+        self.nanoseconds = timeInfo
+        self.timeSourceStatus = traceability
+    
+    def to_json(self):
+        return ignore_none_value(dict(seconds = self.seconds, nanoseconds = self.nanoseconds, timeSourceStatus = self.timeSourceStatus) )
+
+class TimingCaps:
+    def __init__(self, 
+    timeStamp: CurrentTime = None, 
+    ntpServers: List[ntpServer] = None, 
+    ptpMasters: List[ptpMaster] = None
+    ):
+
+        self.timeStamp = timeStamp
+        self.ntpServers = ntpServers
+        self.ptpMasters = ptpMasters
+    
+    def to_json(self):
+        return ignore_none_value(dict(timeStamp = self.timeStamp, ntpServers = self.ntpServers, ptpMasters = self.ptpMasters) )
+
+class ntpServer:
+    def __init__(self, ntpServerAddrType: NtpServerAddrType, ntpServerAddr: string, minPollingInterval: int, 
+    maxPollingInterval: int, localPriority: int, authenticationOption: AuthenticationOption, authenticationKeyNum: int):
+
+     self.ntpServerAddrType = ntpServerAddrType
+     self.ntpServerAddr = ntpServerAddr
+     self.minPollingInterval = minPollingInterval
+     self.maxPollingInterval = maxPollingInterval
+     self.localPriority = localPriority
+     self.authenticationOption = authenticationOption
+     self.authenticationKeyNum = authenticationKeyNum
+
+class ptpMaster:
+    def __init__(self, ptpMasterIpAddress: string, ptpMasterLocalPriority: int, delayReqMaxRate: int):
+        self.ptpMasterIpAddress = ptpMasterIpAddress
+        self.ptpMasterLocalPriority = ptpMasterLocalPriority
+        self.delayReqMaxRate = delayReqMaxRate
+    
+    def to_json(self):
+        return ignore_none_value(dict(ptpMasterIpAddress = self.ptpMasterIpAddress, ptpMasterLocalPriority = self.ptpMasterLocalPriority, 
+        delayReqMaxRate = self.delayReqMaxRate) )
+
+class TimeStamp:
+    def __init__(self, seconds: int, nanoseconds: int):
+        self.seconds = seconds
+        self.nanoseconds = nanoseconds
+    def to_json(self):
+        return ignore_none_value(dict(seconds = self.seconds, nanoseconds = self.nanoseconds))
+
+class ServiceLivenessInfo:
+    def __init__(self, state: ServiceState, timeStamp: Timestamp, interval: int):
+        self.state = state
+        self.timeStamp = timeStamp
+        self.interval = interval
+    
+    @staticmethod
+    def from_json(data: dict) -> ServiceLivenessInfo:
+        # First validate the json via jsonschema
+
+        cherrypy.log("validade timestamp")
+        validate(instance = data["timeStamp"][0], schema = timeStamp_schema)
+
+        cherrypy.log("validate service liveness info")
+        validate(instance=data, schema=serviceLivenessInfo_schema)
+
+        state = data.pop("state")
+        timeStamp = data.pop("timeStamp")
+        interval = data.pop("interval")
+
+        return ServiceLivenessInfo(state, timeStamp, interval)
+
+
+    def to_json(self):
+        return ignore_none_value(dict(state = self.state, timeStamp = self.timeStamp, interval = self.interval))
+
+class serviceLivenessUpdate:
+    def __init__(self, state: ServiceState):
+        self.state = state
+    
+    @staticmethod
+    def from_json(data: dict) -> serviceLivenessInfo:
+        # First validate the json via jsonschema
+        cherrypy.log("validate service liveness update")
+        validate(instance=data, schema=serviceLivenessUpdate_schema)
+        state = data.pop("state")
+
+        return serviceLivenessUpdate(state)
+
+
+    def to_json(self):
+        return ignore_none_value(dict(state = self.state))

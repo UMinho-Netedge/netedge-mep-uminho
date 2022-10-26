@@ -21,6 +21,8 @@ from mp1.service_mgmt.controllers.services_controller                           
     import (ServicesController,)
 from mp1.service_mgmt.controllers.transports_controller                         \
     import (TransportsController,)
+from mp1.service_mgmt.controllers.individual_mecservice_liveness                \
+    import (InvidualMecServiceLivenessController,)
 from mp1.service_mgmt.controllers.callbacks_controller                          \
     import (CallbackController,)
 from mp1.tests.tests_controller                                                 \
@@ -305,22 +307,22 @@ def main(database: Type[DatabaseBase]):
         conditions=dict(method=["GET"]),
     )
 
-    ########################
-    # Callback Controller #
-    ########################
+    ###################################
+    # IndividualMecService Controller #
+    ###################################
     mgmt_dispatcher.connect(
         name="Get MEC Service Liveness",
         action="mecServiceLiveness_get",
-        controller=CallbackController,
-        route="/resource_uri_allocated_by_MEC_platform",
+        controller=InvidualMecServiceLivenessController,
+        route="/liveness/:appInstanceId/:serviceId",
         conditions=dict(method=["GET"]),
     )
 
     mgmt_dispatcher.connect(
         name="Update MEC Service Liveness",
         action="mecServiceLiveness_update",
-        controller=CallbackController,
-        route="/resource_uri_allocated_by_MEC_platform",
+        controller=InvidualMecServiceLivenessController,
+        route="/liveness/:appInstanceId/:serviceId",
         conditions=dict(method=["PATCH"]),
     )
 

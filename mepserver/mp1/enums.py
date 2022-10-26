@@ -107,3 +107,12 @@ class StateType(Enum):
 class TimeSourceStatus(Enum):
     TRACEABLE = "TRACEABLE"
     UNTRACEABLE = "UNTRACEABLE"
+
+class NtpServerAddrType(Enum):
+    IP_ADDRESS = "IP_ADDRESS"
+    DNS_NAME = "DNS_NAME"
+
+class AuthenticationOption(Enum):
+    NONE = "NONE"
+    SYMMETRIC_KEY = "SYMMETRIC_KEY"
+    AUTO_KEY = "AUTO_KEY"

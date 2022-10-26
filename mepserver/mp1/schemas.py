@@ -350,3 +350,45 @@ current_time_schema = {
     "required": ["seconds", "nanoseconds", "timeSourceStatus"],
     "additionalProperties": False,
 }
+
+timeStamp_schema = {
+    "type": "object",
+    "properties": {
+        "seconds": {"type": "integer"},
+        "nanoseconds": {"type": "integer"}
+    },
+    "required": ["seconds", "nanoseconds"],
+    "additionalProperties": False,
+}
+
+serviceLivenessInfo_schema = {
+    "type": "object",
+    "properties": {
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "SUSPENDED"
+            ]
+        },
+        "timeStamp": timeStamp_schema,
+        "interval": {"type": "integer"}
+    },
+    "required": ["state", "timeStamp", "interval"],
+    "additionalProperties": False,
+}
+
+serviceLivenessUpdate_schema = {
+    "type": "object",
+    "properties": {
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "SUSPENDED"
+            ]
+        }
+    },
+    "required": ["state"],
+    "additionalProperties": False,
+}
