@@ -14,7 +14,6 @@
 
 import cherrypy
 import requests
-# from urllib import request, parse
 from mp1.models import *
 import time
 from cherrypy.process.plugins import BackgroundTask
@@ -74,15 +73,12 @@ class CallbackController:
             data=json.dumps(notification, cls=NestedEncoder),
             headers={"Content-Type": "application/json"},
         )
-        # httpreq = request.Request(subscription.callbackReference, method="POST")
-        # httpreq.add_header('Content-Type', 'application/json')
-        # response = request.urlopen(httpreq, data=notification.to_json())
 
         task.cancel()
 
     def configure_trafficRules(
         appInstanceId:str,
-        trafficRules: List(TrafficRule),
+        trafficRules: List[TrafficRule],
         sleep_time: int = 10,
     ):
         for rule in trafficRules:
