@@ -305,11 +305,42 @@ def trafficRuleToNetworkPolicy(appInstanceId: str, data: dict):
         },
         "spec": {
             "podSelector": {
-                "matchLabels": {
-                    "appInstanceId": appInstanceId
-                }
+                "matchLabels": {"appInstanceId": appInstanceId}
             },
-            "policyTypes": ["Ingress", "Egress"]
+            "policyTypes": ["Ingress", "Egress"],
+            "ingress": 
+                {
+                    "from": {
+                        "ipBlock": {
+                            "cidr": data["trafficFilter"]["srcAddress"]
+                        },
+                        "namespaceSelector": {
+                            "matchLabels": {"appInstanceId": appInstanceId}
+                        },
+                        "podSelector": {
+                            "matchLabels": {"appInstanceId": appInstanceId}
+                        }
+                    },
+                    "ports": {
+                        {"port": data["trafficFilter"]["srcPort"]}
+                    }
+                },
+            "egress": [
+                {
+                    "to": {
+                        "ipBlock": {
+                            "cidr": data["trafficFilter"]["dstAddress"]
+                        }
+                    },
+                    "ports": {
+                        [
+                            {"port": data["trafficFilter"]["dstPort"]}
+                        ]
+                        
+                    }
+
+                }
+            ]
         }
     }
 
