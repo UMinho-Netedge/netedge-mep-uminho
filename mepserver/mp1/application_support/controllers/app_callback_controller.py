@@ -22,32 +22,24 @@ from kubernetes import client, config, utils
 
 class CallbackController:
     @staticmethod
-    def execute_callback(
-        subscription: AppTerminationNotificationSubscription,
-        notification: AppTerminationNotification,
-        sleep_time: int = 10,
-    ):
+    def execute_callback(args, func, sleep_time: int = 10):
         """
         Send the callback to the specified url (i.e callbackreference)
         Start a cherrypy BackgroundTask https://docs.cherrypy.dev/en/latest/pkg/cherrypy.process.plugins.html
         Pass the callbackreference (i.e url to call) and the data
-
-        :param availability_notifications: The python object containing the callbackreference
-        :type availability_notifications: AvailabilityNotification
-        :param data: Data containing the services that match the filtering criteria of the subscriber
-        :type data: Json/Dict
         """
-        if notification:
-            callback_task = BackgroundTask(
-                interval=0,
-                function=CallbackController._callback_function,
-                args=[subscription, notification, sleep_time],
-                bus=cherrypy.engine,
-            )
-            # Add the callback_task to itself to allow to cancel itself
-            # (needed since BackgroundTask is usually repeatable)
-            callback_task.args.insert(0, callback_task)
-            callback_task.start()
+        data = args + [sleep_time]
+        print(data)
+        callback_task = BackgroundTask(
+            interval=0,
+            function=func,
+            args=data,
+            bus=cherrypy.engine,
+        )
+        # Add the callback_task to itself to allow to cancel itself
+        # (needed since BackgroundTask is usually repeatable)
+        callback_task.args.insert(0, callback_task)
+        callback_task.start()
 
     @staticmethod
     def _callback_function(
@@ -113,7 +105,7 @@ class CallbackController:
         task.cancel()
 
     @staticmethod
-    def create_secret(
+    def _create_secret(
         task,
         appInstanceId: str,
         data: dict,

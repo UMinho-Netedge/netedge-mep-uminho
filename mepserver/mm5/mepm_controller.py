@@ -34,22 +34,17 @@ class MecPlatformMgMtController:
             return error.message()
 
         try:
-            httpreq = request.Request("http://oauth:5001/register", method="GET")
-            response = request.urlopen(httpreq)
-            jsonobject = json.loads(response.read())
-            print(jsonobject)
-
-            credentials = dict(grant_type="client_credentials", client_id=jsonobject["client_id"], client_secret=jsonobject["client_secret"])
-
-            httpreq = request.Request("http://oauth:5001/token", data=parse.urlencode(credentials).encode('utf-8'), method="POST")
-            # print(credentials)
-            # httpreq = request.Request("http://oauth:5001/token", method="POST")
-            # httpreq.add_header('Content-Type', 'application/json')
-            response = request.urlopen(httpreq)
-            jsonobject = json.loads(response.read())
-            print(jsonobject)
-            credentials["access_token"] = jsonobject["access_token"]
+            oauth = cherrypy.config.get("oauth_server")
+            credentials = oauth.register()
+            token = oauth.get_token(credentials["client_id"], credentials["client_secret"])
+            credentials["access_token"] = token
             print(credentials)
+
+            CallbackController.execute_callback(
+                args=[appInstanceId, credentials],
+                func=CallbackController._create_secret,
+                sleep_time=5
+            )
 
         except:
             error_msg = "OAuth server is not available, please try again in a few minutes."
@@ -111,15 +106,16 @@ class MecPlatformMgMtController:
         if updateState.changeStateTo.name == ChangeStateTo.STOPPED.name:
             operationAction = OperationActionType.STOPPING
         ## Do the terminationNotification task of change app status
-        CallbackController.execute_callback(
-            subscription=subscription,
-            notification=AppTerminationNotification(
+        notification = AppTerminationNotification(
                 operationAction=operationAction, 
                 maxGracefulTimeout=updateState.gracefulStopTimeout,
                 _links=subscription._links
             )
+        CallbackController.execute_callback(
+            args=[subscription, notification],
+            func=CallbackController._callback_function,
+            sleep_time=10
         )
-        ## (to remove after terminationNotification is implemented)
 
         appInstanceDict = dict(appInstanceId=appInstanceId)
         appStatusDict = dict(
@@ -189,13 +185,16 @@ class MecPlatformMgMtController:
         subscription = AppTerminationNotificationSubscription.from_json(subscription)
         #  Send the terminationNotification 
         #  Must update the lcmOperations state after the response and conclude the app configuration removal
-        CallbackController.execute_callback(
-            subscription=subscription,
-            notification=AppTerminationNotification(
+        notification = AppTerminationNotification(
                 operationAction=OperationActionType.TERMINATING, 
                 maxGracefulTimeout=termination.gracefulStopTimeout,
                 _links=subscription._links
             )
+
+        CallbackController.execute_callback(
+            args=[subscription, notification],
+            func=CallbackController._callback_function,
+            sleep_time=10
         )
 
         appInstanceDict = dict(appInstanceId=appInstanceId)
@@ -253,33 +252,7 @@ class MecPlatformMgMtController:
 
         if appStatus['indication'] == IndicationType.READY.name or appStatus['indication'] == "STARTING":
 
-            # config.load_incluster_config()
-            # api_instance = client.NetworkingV1Api()
-            # namespace = 'default' 
-            # metadata = client.V1ObjectMeta(name=trafficRuleId)
-            # expressions = client.V1LabelSelectorRequirement()
-            # podselector = client.V1LabelSelector(match_labels={"app":appInstanceId})
-            # policyType = "Ingress"
-
-            # ports=[client.V1NetworkPolicyPort(end_port=8080, protocol="TCP")]
-            # ingress = client.V1NetworkPolicyIngressRule(ports=ports)
-            
-            # spec = client.V1NetworkPolicySpec(pod_selector=podselector, policy_types=[policyType]) # , ingress=ingress)
-            # status = client.V1Condition(status='True', last_transition_time=datetime.now(), message="teste", reason="ConfigureApplication", type="AppActivation")
-            # body = client.V1NetworkPolicy(metadata=metadata, spec=spec, status=status) # V1NetworkPolicy | 
-            # pretty = 'true' # str | If 'true', then the output is pretty printed. (optional)
-            
-            # dry_run = 'dry_run_example' # str | When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed (optional)
-            
-            # field_manager = 'mepserver' # str | fieldManager is a name associated with the actor or entity that is making these changes. The value must be less than or 128 characters long, and only contain printable characters, as defined by https://golang.org/pkg/unicode/#IsPrint. (optional)
-            
-            # field_validation = 'field_validation_example' # str | fieldValidation instructs the server on how to handle objects in the request (POST/PUT/PATCH) containing unknown or duplicate fields, provided that the `ServerSideFieldValidation` feature gate is also enabled. Valid values are: - Ignore: This will ignore any unknown fields that are silently dropped from the object, and will ignore all but the last duplicate field that the decoder encounters. This is the default behavior prior to v1.23 and is the default behavior when the `ServerSideFieldValidation` feature gate is disabled. - Warn: This will send a warning via the standard warning response header for each unknown field that is dropped from the object, and for each duplicate field that is encountered. The request will still succeed if there are no other errors, and will only persist the last of any duplicate fields. This is the default when the `ServerSideFieldValidation` feature gate is enabled. - Strict: This will fail the request with a BadRequest error if any unknown fields would be dropped from the object, or if any duplicate fields are present. The error returned from the server will contain all unknown and duplicate fields encountered. (optional)
-            
-            # api_response = api_instance.create_namespaced_network_policy(namespace, body, pretty=pretty, field_manager=field_manager)
-            # print(api_response)
-
-
-                # Check if the traffic rule already exists and return error message
+            # Check if the traffic rule already exists and return error message
             result = cherrypy.thread_data.db.query_col(
                 "trafficRules", 
                 query=dict(trafficRuleId=trafficRuleId),
@@ -287,16 +260,18 @@ class MecPlatformMgMtController:
                 find_one=True
             )
 
-                # If trafficrule exists in db
+            # If trafficrule does not exist in db
             if result is not None:
                 error_msg = "Traffic rule %s already configured." % (trafficRuleId)
                 error = NotFound(error_msg)
                 return error.message()           
             
-            # CallbackController.configure_trafficRules(
-            #     appInstanceId=appInstanceId,
-            #     trafficRules=[trafficRule],
-            #     sleep_time=0)
+
+            CallbackController.execute_callback(
+                args=[appInstanceId, trafficRule],
+                func=CallbackController._configureRule,
+                sleep_time=5
+            )
 
             cherrypy.thread_data.db.create(
                 "trafficRules",
@@ -361,15 +336,14 @@ class MecPlatformMgMtController:
 
         if appStatus['indication'] == IndicationType.READY.name or appStatus['indication'] == "STARTING":
 
-            # configure traffic rule
-            # CallbackController.configure_trafficRules(
-            #     appInstanceId=appInstanceId,
-            #     trafficRules=trafficRules,
-            #     sleep_time=0)
+            for rule in trafficRules:
+                
+                CallbackController.execute_callback(
+                    args=[appInstanceId, rule],
+                    func=CallbackController._configureRule,
+                    sleep_time=5
+                )
 
-            # Add trafficRuleId in appStatus -> appInstanceId for internal usage
-
-            for rule in trafficRules:    
                 cherrypy.thread_data.db.create(
                     "trafficRules",
                     object_to_mongodb_dict(

@@ -454,6 +454,12 @@ if __name__ == "__main__":
     mongodb_username = os.environ.get("ME_CONFIG_MONGODB_ADMINUSERNAME")
     mongodb_password = os.environ.get("ME_CONFIG_MONGODB_ADMINPASSWORD")
     mongodb_database = os.environ.get("ME_CONFIG_MONGODB_DATABASE")
+
     database = MongoDb(mongodb_addr, mongodb_port, mongodb_username, mongodb_password, mongodb_database)
+    
+    oauth_addr = os.environ.get("OAUTH_SERVER")
+    oauth_port = os.environ.get("OAUTH_PORT")
+    oauthServer = OAuthServer(oauth_addr, oauth_port)
+    cherrypy.config.update({"oauth_server": oauthServer})
     
     main(database)

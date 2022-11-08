@@ -12,12 +12,42 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-apiVersion: v1
-kind: ConfigMap
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: mongodb-configmap
+  labels:
+    mep.app: oauth
+  name: oauth-deployment
   namespace: mep
-data:
-  database_url: mongodb-service 
-  database_port: "27017"
-  database_name: "mep"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      mep.app: oauth
+  template:
+    metadata:
+      labels:
+        mep.app: oauth
+      namespace: mep
+    spec:
+      containers:
+        - name: oauth
+          image: arom98/auth-server:v3.2
+          ports:
+          - containerPort: 5001
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    mep.app: oauth
+  name: oauth-service
+  namespace: mep
+spec:
+  ports:
+    - protocol: TCP
+      port: 5001
+      targetPort: 5001
+  selector:
+    mep.app: oauth

@@ -18,7 +18,7 @@ import string
 from typing import List, Union
 from jsonschema import validate
 import cherrypy
-
+from urllib import request, parse
 from .utils import *
 from .enums import *
 from .mep_exceptions import *
@@ -1599,3 +1599,27 @@ class TerminateAppInstance:
                 gracefulStopTimeout=self.gracefulStopTimeout
             )
         )
+
+class OAuthServer:
+    def __init__(self, url: str, port: str) -> None:
+        self.url = url
+        self.port = port
+    
+    def register(self):
+        httpreq = request.Request("http://%s:%s/register" %(self.url, self.port), method="GET")
+        response = request.urlopen(httpreq)
+        jsonobject = json.loads(response.read())
+        return dict(client_id=jsonobject["client_id"], client_secret=jsonobject["client_secret"])
+    
+    def get_token(self, client_id:str, client_secret:str):
+        credentials = dict(grant_type="client_credentials", client_id=client_id, client_secret=client_secret)
+        httpreq = request.Request("http://%s:%s/token" %(self.url, self.port), data=parse.urlencode(credentials).encode('utf-8'), method="POST")
+        response = request.urlopen(httpreq)
+        jsonobject = json.loads(response.read())
+        return jsonobject["access_token"]
+    
+    def validate_token(self, access_token:str):
+        data = dict(access_token=access_token)
+        httpreq = request.Request("http://%s:%s/validate_token" %(self.url, self.port), data=parse.urlencode(data).encode('utf-8'), method="POST")
+        response = request.urlopen(httpreq)
+        return response.getcode() == 200

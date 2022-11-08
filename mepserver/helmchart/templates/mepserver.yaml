@@ -20,7 +20,7 @@ metadata:
   name: mepserver-deployment
   namespace: mep
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       mep.app: mepserver
@@ -31,7 +31,7 @@ spec:
       namespace: mep
     spec:
       containers:
-        - image: vinicf/netedge-mepserver:0.1.25
+        - image: vinicf/netedge-mepserver:0.1.28
           name: mepserver
           ports:
             - containerPort: 8080
@@ -41,6 +41,16 @@ spec:
                 configMapKeyRef:
                   name: mongodb-configmap
                   key: database_url
+            - name: ME_CONFIG_MONGODB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: mongodb-configmap
+                  key: database_port
+            - name: ME_CONFIG_MONGODB_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: mongodb-configmap
+                  key: database_name
             - name: ME_CONFIG_MONGODB_ADMINUSERNAME
               valueFrom:
                 secretKeyRef:
@@ -51,8 +61,17 @@ spec:
                 secretKeyRef:
                   name: mongodb-secret
                   key: mongodb_password
+            - name: OAUTH_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  name: oauth-configmap
+                  key: oauth-server-url
+            - name: OAUTH_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: oauth-configmap
+                  key: oauth-server-port
 
-      restartPolicy: Always
 ---
 apiVersion: v1
 kind: Service
