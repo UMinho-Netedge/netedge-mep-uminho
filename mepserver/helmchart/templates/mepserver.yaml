@@ -30,8 +30,10 @@ spec:
         mep.app: mepserver
       namespace: mep
     spec:
+      serviceAccountName: mepserver
+      automountServiceAccountToken: true
       containers:
-        - image: vinicf/netedge-mepserver:0.1.28
+        - image: vinicf/netedge-mepserver:0.1.29
           name: mepserver
           ports:
             - containerPort: 8080
@@ -87,3 +89,31 @@ spec:
       targetPort: 8080
   selector:
     mep.app: mepserver
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mepserver
+  namespace: mep
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mep-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get","list","watch","update","create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mep-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mep-role
+subjects:
+- kind: ServiceAccount
+  name: mepserver
+  namespace: mep

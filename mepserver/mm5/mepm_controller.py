@@ -7,6 +7,7 @@ from hashlib import md5
 from datetime import datetime
 import uuid
 from mp1.application_support.controllers.app_callback_controller import *
+import base64
 
 class MecPlatformMgMtController:
 
@@ -39,9 +40,10 @@ class MecPlatformMgMtController:
             token = oauth.get_token(credentials["client_id"], credentials["client_secret"])
             credentials["access_token"] = token
             print(credentials)
+            secret = dict(access_token=base64.b64encode(token.encode('ascii')).decode('ascii'))
 
             CallbackController.execute_callback(
-                args=[appInstanceId, credentials],
+                args=[appInstanceId, secret],
                 func=CallbackController._create_secret,
                 sleep_time=5
             )
