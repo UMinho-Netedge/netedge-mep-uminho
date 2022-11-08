@@ -21,15 +21,22 @@ import json
 
 
 class MongoDb(DatabaseBase):
-    def __init__(self, ip, port, database):
+    def __init__(self, ip, port, username, password, database):
         self.ip = ip
-        self.port = port
+        self.port = int(port)
+        self.username = username
+        self.password = password
         self.database = database
         self.client = None
 
     def connect(self, thread_index):
         # Create database connection
-        self.client = MongoClient('mongodb://mongodb:27017')[self.database]
+        # cherrypy.log(
+        # '''Connection variables are:\n
+        # host=%s\tport=%s\tusername=%s\tpassword=%s\tdatabase=%s'''
+        # % (self.ip, self.port, self.username, self.password, self.database)
+        # )
+        self.client = MongoClient(host=self.ip, port=self.port, username=self.username, password=self.password)[self.database]
         # Add database to each thread (https://github.com/cherrypy/tools/blob/master/Databases)
         cherrypy.thread_data.db = self
 

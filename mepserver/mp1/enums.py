@@ -116,3 +116,20 @@ class AuthenticationOption(Enum):
     NONE = "NONE"
     SYMMETRIC_KEY = "SYMMETRIC_KEY"
     AUTO_KEY = "AUTO_KEY"
+
+class ChangeStateTo(Enum):
+    STARTED = "STARTED"
+    STOPPED = "STOPPED"
+
+class StopType(Enum):
+    FORCEFUL = "FORCEFUL"
+    GRACEFUL = "GRACEFUL"
+
+class TerminationType(Enum):
+    FORCEFUL = "FORCEFUL"
+    GRACEFUL = "GRACEFUL"
+
+class OperationStatus(Enum):
+    PROCESSING = "PROCESSING"
+    SUCCESSFULLY_DONE = "SUCCESSFULLY_DONE"
+    FAILED = "FAILED"

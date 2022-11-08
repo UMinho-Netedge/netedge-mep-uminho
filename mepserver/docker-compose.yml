@@ -16,9 +16,23 @@ version: "3.8"
 
 services:
   mepserver:
-    image: vinicf/netedge-mepserver
-    ports:
-      - "8080:8080"
+      # image: vinicf/netedge-mepserver:0.1.23
+      image: python:3.9
+      command: bash -c "useradd -m -d /home/netedge netedge && apt update && pip install -r /home/netedge/requirements.txt && python3 /home/netedge/main.py --mongodb_database mep"
+      volumes:
+        - ./:/home/netedge
+      ports:
+        - "8080:8080"
+      environment:
+        USER: netedge
+        PATH: "$PATH:/home/netedge/.local/bin"
+        ME_CONFIG_MONGODB_SERVER: "mongodb"
+        ME_CONFIG_MONGODB_PORT: 27017
+        ME_CONFIG_MONGODB_ADMINUSERNAME: ""
+        ME_CONFIG_MONGODB_ADMINPASSWORD: ""
+        ME_CONFIG_MONGODB_DATABASE: "mep"
+
+
 
   mongodb:
     image: mongo
@@ -31,3 +45,8 @@ services:
       - "8081:8081"
     environment:
       - ME_CONFIG_MONGODB_SERVER=mongodb
+
+  oauth:
+    image: arom98/auth-server:v3.2
+    ports:
+      - 5001:5001

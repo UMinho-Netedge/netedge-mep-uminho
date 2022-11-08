@@ -12,28 +12,20 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  labels:
-    mep.service: mongodb
-  name: mongodb
+  name: mongoexpress-ingress
+  namespace: mep
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      mep.service: mongodb
-  strategy: {}
-  template:
-    metadata:
-      labels:
-        mep.service: mongodb
-    spec:
-      containers:
-        - image: mongo
-          name: mongodb
-          ports:
-            - containerPort: 27017
-          resources: {}
-      restartPolicy: Always
-status: {}
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mongo-express-service
+            port:
+              number: 8081
+    host: mep.mongoexpress.com

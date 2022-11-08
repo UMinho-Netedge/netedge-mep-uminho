@@ -24,10 +24,10 @@ from deepdiff import DeepDiff
 
 sys.path.append("../../")
 from mp1.models import *
-from .callbacks_controller import CallbackController
+from .services_callbacks_controller import CallbackController
 
 
-class ApplicationSubscriptionsController:
+class ApplicationServicesSubscriptionsController:
     @json_out(cls=NestedEncoder)
     def applications_subscriptions_get(self, appInstanceId: str, **kwargs):
         """

@@ -12,17 +12,20 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-apiVersion: v1
-kind: Service
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  labels:
-    mep.service: mepserver
-  name: mepserver
+  name: mepserver-ingress
+  namespace: mep
 spec:
-  ports:
-    - name: "8080"
-      port: 8080
-      targetPort: 8080
-  type: LoadBalancer
-  selector:
-    mep.service: mepserver
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mepserver-service
+            port:
+              number: 8080
+    host: mp1.mep.com

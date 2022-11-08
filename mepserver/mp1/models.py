@@ -548,7 +548,7 @@ class TransportInfo:
             name: str,
             type: TransportType,
             version: str,
-            endpoint: [EndPointInfo.Addresses, EndPointInfo.Uris, EndPointInfo.Alternative],
+            endpoint: Union(EndPointInfo.Addresses, EndPointInfo.Uris, EndPointInfo.Alternative),
             security: SecurityInfo,
             description: str = "",
             implSpecificInfo: str = "",
@@ -936,6 +936,56 @@ class AppTerminationConfirmation:
     def __str__(self):
         return str(self.operationAction)
 
+class AppTerminationNotificationSubscription:
+    def __init__(self, callbackReference: str, _links: Links, appInstanceId: str, subscriptionType: str = "AppTerminationNotificationSubscription"):
+        self.subscriptionType = subscriptionType
+        self.callbackReference = callbackReference
+        self._links = _links
+        self.appInstanceId = appInstanceId
+
+    def from_json(data: dict):
+        validate(instance=data, schema=appTerminationNotificationSubscription_schema)
+        callbackReference = data.pop("callbackReference")
+        appInstanceId = data.pop("appInstanceId")
+        subscriptionType = data.pop("subscriptionType")
+        try:
+            _links = Links.from_json(data["_links"])
+        except KeyError:
+            _links = None
+
+        return AppTerminationNotificationSubscription(
+            callbackReference=callbackReference,
+            _links=_links,
+            appInstanceId=appInstanceId,
+            subscriptionType=subscriptionType
+            )
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                    subscriptionType=self.subscriptionType,
+                    callbackReference=self.callbackReference,
+                    _links=self._links,
+                    appInstanceId=self.appInstanceId
+
+                )
+            )
+
+class AppTerminationNotification:
+    def __init__(self, operationAction: OperationActionType, maxGracefulTimeout: int, _links: LinkType, notificationType: str = "AppTerminationNotification") -> None:
+        self.notificationType = notificationType
+        self.operationAction = operationAction
+        self.maxGracefulTimeout = maxGracefulTimeout
+        self._links = _links
+    
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                notificationType=self.notificationType,
+                operationAction=self.operationAction,
+                maxGracefulTimeout=self.maxGracefulTimeout,
+                _links=self._links
+            )
+        )
 
 #################
 # ERROR CLASSES #
@@ -1165,7 +1215,7 @@ class DestinationInterface:
 
 
 
-class TrafficRules:
+class TrafficRule:
     def __init__(self, trafficRuleId: str, filterType: str,
                  priority: int,
                  trafficFilter: List[TrafficFilter] = None,
@@ -1183,20 +1233,8 @@ class TrafficRules:
 
 
     @staticmethod
-    def from_json(data: dict) -> TrafficRules:
-        # First validate the json via jsonschema
-
-        cherrypy.log("validade tunnelInfo")
-        validate(instance = data["dstInterface"][0]["tunnelInfo"], schema = tunnel_info_schema)
-
-        cherrypy.log("validate trafficFilter")
-        validate(instance = data["trafficFilter"][0], schema = traffic_filter_schema)
-
-        cherrypy.log("validate dstInterface")
-        validate(instance=data["dstInterface"][0], schema=destination_interface_schema)
-
-        cherrypy.log("validate traffic rule")
-        validate(instance=data, schema=traffic_rule_schema)
+    def from_json(data: dict) -> TrafficRule:
+        validate(instance=data, schema=trafficRule_schema)
 
         trafficRuleId = data.pop("trafficRuleId")
         filterType = data.pop("filterType")
@@ -1207,7 +1245,7 @@ class TrafficRules:
         state = data.pop("state")
 
 
-        return TrafficRules(trafficRuleId = trafficRuleId, filterType = filterType,
+        return TrafficRule(trafficRuleId = trafficRuleId, filterType = filterType,
                             priority = priority, trafficFilter = trafficFilter, action = action,
                             dstInterface = dstInterface, state = state)
 
@@ -1270,7 +1308,7 @@ class TimeStamp:
         return ignore_none_value(dict(seconds = self.seconds, nanoseconds = self.nanoseconds))
 
 class ServiceLivenessInfo:
-    def __init__(self, state: ServiceState, timeStamp: Timestamp, interval: int):
+    def __init__(self, state: ServiceState, timeStamp: TimeStamp, interval: int):
         self.state = state
         self.timeStamp = timeStamp
         self.interval = interval
@@ -1295,19 +1333,269 @@ class ServiceLivenessInfo:
     def to_json(self):
         return ignore_none_value(dict(state = self.state, timeStamp = self.timeStamp, interval = self.interval))
 
-class serviceLivenessUpdate:
+class ServiceLivenessUpdate:
     def __init__(self, state: ServiceState):
         self.state = state
     
     @staticmethod
-    def from_json(data: dict) -> serviceLivenessInfo:
+    def from_json(data: dict) -> ServiceLivenessInfo:
         # First validate the json via jsonschema
         cherrypy.log("validate service liveness update")
         validate(instance=data, schema=serviceLivenessUpdate_schema)
         state = data.pop("state")
 
-        return serviceLivenessUpdate(state)
+        return ServiceLivenessUpdate(state)
 
 
     def to_json(self):
         return ignore_none_value(dict(state = self.state))
+
+
+
+################################ MM5 data types #######################################
+# MEC 010v2 6.2.2.21
+
+class ServiceDependency:
+    def __init__(self) -> None:
+        pass
+
+class ServiceDescriptor:
+    def __init__(self) -> None:
+        pass
+
+class FeatureDependency:
+    def __init__(self) -> None:
+        pass
+
+class TransportDependency:
+    def __init__(self) -> None:
+        pass
+
+class TrafficRuleDescriptor:
+    def __init__(self, trafficRule: TrafficRule):
+        self.trafficRule = trafficRule
+    
+    def from_json(data: dict):
+        data = data | {"state": "ACTIVE"}
+        trafficRuleDescriptor = TrafficRule.from_json(data)
+        return TrafficRuleDescriptor(trafficRuleDescriptor)
+
+    def to_json(self):
+        trafficRuleDescriptor = self.trafficRule.to_json()
+        trafficRuleDescriptor.pop("state")
+        return trafficRuleDescriptor
+class DNSRuleDescriptor:
+    def __init__(self, dnsRule: DnsRule):
+        self.dnsRule = dnsRule
+    
+    def from_json(data: dict):
+        data = data | {"state": "ACTIVE"}
+        dnsRule = DnsRule.from_json(data)
+        return DNSRuleDescriptor(dnsRule)
+
+    def to_json(self):
+        dnsDescriptor = self.dnsRule.to_json()
+        dnsDescriptor.pop("state")
+        return dnsDescriptor
+
+class LatencyDescriptor:
+    def __init__(self) -> None:
+        pass
+
+class UserContextTransferCapility:
+    def __init__(self) -> None:
+        pass
+
+class AppNetworkPolicy:
+    def __init__(self) -> None:
+        pass
+
+class ConfigPlatformForAppRequest:
+    def __init__(self, 
+    appServiceRequired: List(ServiceDependency) = None,
+    appServiceOptional: List(ServiceDependency) = None,
+    appServiceProduced: List(ServiceDescriptor) = None,
+    appFeatureRequired: List(FeatureDependency) = None,
+    appFeatureOptional: List(FeatureDependency) = None,
+    transportDependencies: List(TransportDependency) = None,
+    appTrafficRule: List(TrafficRuleDescriptor) = None,
+    appDNSRule: List(DNSRuleDescriptor) = None,
+    appLatency: LatencyDescriptor = None,
+    userContextTransferCapability: UserContextTransferCapility = None,
+    appNetworkPolicy: AppNetworkPolicy = None
+    ):
+        self.appServiceRequired = appServiceRequired
+        self.appServiceOptional = appServiceOptional
+        self.appServiceProduced = appServiceProduced
+        self.appFeatureRequired = appFeatureRequired
+        self.appFeatureOptional = appFeatureOptional
+        self.transportDependencies = transportDependencies
+        self.appTrafficRule = appTrafficRule
+        self.appDNSRule = appDNSRule
+        self.appLatency = appLatency
+        self.userContextTransferCapability = userContextTransferCapability
+        self.appNetworkPolicy = appNetworkPolicy
+
+    def from_json(data: dict) -> ConfigPlatformForAppRequest:
+        try:
+            appServiceRequired = []
+            for svc in data["appServiceRequired"]:
+                appServiceRequired.insert(ServiceDependency.from_json(svc))
+        except KeyError:
+            appServiceRequired = None
+            
+        try:
+            appServiceOptional = []
+            for svc in data["appServiceOptional"]:
+                appServiceOptional.insert(ServiceDependency.from_json(svc))
+        except KeyError:
+            appServiceOptional = None
+        
+        try:
+            appServiceProduced = []
+            for svc in data["appServiceProduced"]:
+                appServiceProduced.insert(ServiceDescriptor.from_json(svc))
+        except KeyError:
+            appServiceProduced = None
+
+        try:
+            appFeatureRequired = []
+            for ft in data["appFeatureRequired"]:
+                appFeatureRequired.insert(FeatureDependency.from_json(ft))
+        except KeyError:
+            appFeatureRequired = None
+
+        try:
+            appFeatureOptional = []
+            for ft in data["appFeatureOptional"]:
+                appFeatureOptional.insert(FeatureDependency.from_json(ft))
+        except KeyError:
+            appFeatureOptional = None
+
+        try:
+            transportDependencies = []
+            for td in data["transportDependencies"]:
+                transportDependencies.insert(TransportDependency.from_json(td))
+        except KeyError:
+            transportDependencies = None
+
+        try:
+            appTrafficRule = []
+            for tr in data["appTrafficRule"]:
+                appTrafficRule.insert(TrafficRuleDescriptor.from_json(tr))
+        except KeyError:
+            appTrafficRule = None
+
+        try:
+            appDNSRule = []
+            for dr in data["appDNSRule"]:
+                appDNSRule.insert(DNSRuleDescriptor.from_json(dr))
+        except KeyError:
+            appDNSRule = None
+
+        try:
+            appLatency = LatencyDescriptor.from_json(data["appLatency"])
+        except KeyError:
+            appLatency = None
+
+        try:
+            userContextTransferCapability = UserContextTransferCapility.from_json(data["userContextTransferCapability"])
+        except KeyError:
+            userContextTransferCapability = None
+        
+        try:
+            appNetworkPolicy = AppNetworkPolicy.from_json(data["appNetworkPolicy"])
+        except KeyError:
+            appNetworkPolicy = None
+
+        return ConfigPlatformForAppRequest(
+            appServiceRequired=appServiceRequired,
+            appServiceOptional=appServiceOptional,
+            appServiceProduced=appServiceProduced,
+            appFeatureRequired=appFeatureRequired,
+            appFeatureOptional=appFeatureOptional,
+            transportDependencies=transportDependencies,
+            appTrafficRule=appTrafficRule,
+            appDNSRule=appDNSRule,
+            appLatency=appLatency,
+            userContextTransferCapability=userContextTransferCapability,
+            appNetworkPolicy=appNetworkPolicy
+        )
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                appServiceRequired=self.appServiceRequired,
+                appServiceOptional=self.appServiceOptional,
+                appServiceProduced=self.appServiceProduced,
+                appFeatureRequired=self.appFeatureRequired,
+                appFeatureOptional=self.appFeatureOptional,
+                transportDependencies=self.transportDependencies,
+                appTrafficRule=self.appTrafficRule,
+                appDNSRule=self.appDNSRule,
+                appLatency=self.appLatency,
+                userContextTransferCapability=self.userContextTransferCapability,
+                appNetworkPolicy=self.appNetworkPolicy
+            )
+        )
+
+class ChangeAppInstanceState:
+    def __init__(self, appInstanceId: str, changeStateTo: ChangeStateTo, stopType: StopType = None, gracefulStopTimeout: int = None) -> None:
+        self.appInstanceId = appInstanceId
+        self.changeStateTo = changeStateTo
+        self.stopType = stopType
+        self.gracefulStopTimeout = gracefulStopTimeout
+    
+    def from_json(data: dict):
+        validate(data, schema=changeAppInstanceState_schema)
+        appInstanceId = data.pop("appInstanceId")
+        changeStateTo = ChangeStateTo(data.pop("changeStateTo"))
+        stopType = StopType(data.pop("stopType"))
+        gracefulStopTimeout = int(data.pop("gracefulStopTimeout"))
+
+        return ChangeAppInstanceState(
+            appInstanceId=appInstanceId,
+            changeStateTo=changeStateTo,
+            stopType=stopType,
+            gracefulStopTimeout=gracefulStopTimeout
+        )
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                appInstanceId=self.appInstanceId,
+                changeStateTo=self.changeStateTo,
+                stopType=self.stopType,
+                gracefulStopTimeout=self.gracefulStopTimeout
+            )
+        )
+
+class TerminateAppInstance:
+    def __init__(self, appInstanceId: str, terminationType: TerminationType, gracefulStopTimeout: int) -> None:
+        self.appInstanceId = appInstanceId
+        self.terminationType = terminationType
+        self.gracefulStopTimeout = gracefulStopTimeout
+    
+    def from_json(data: dict):
+        validate(data, schema=terminateAppInstance_schema)
+        appInstanceId = data.pop("appInstanceId")
+        terminationType = TerminationType(data.pop("terminationType"))
+        try:
+            gracefulStopTimeout = int(data.pop("gracefulStopTimeout"))
+        except KeyError:
+            gracefulStopTimeout = 0
+
+        return TerminateAppInstance(
+            appInstanceId=appInstanceId,
+            terminationType=terminationType,
+            gracefulStopTimeout=gracefulStopTimeout
+        )
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                appInstanceId=self.appInstanceId,
+                terminationType=self.terminationType,
+                gracefulStopTimeout=self.gracefulStopTimeout
+            )
+        )

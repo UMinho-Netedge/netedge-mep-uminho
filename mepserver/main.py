@@ -13,8 +13,8 @@
 #     limitations under the License.
 
 # Service Management Controllers
-from mp1.service_mgmt.controllers.app_subscriptions_controller                  \
-    import (ApplicationSubscriptionsController,)
+from mp1.service_mgmt.controllers.app_service_subscriptions_controller                  \
+    import (ApplicationServicesSubscriptionsController,)
 from mp1.service_mgmt.controllers.app_services_controller                       \
     import (ApplicationServicesController,)
 from mp1.service_mgmt.controllers.services_controller                           \
@@ -23,10 +23,6 @@ from mp1.service_mgmt.controllers.transports_controller                         
     import (TransportsController,)
 from mp1.service_mgmt.controllers.individual_mecservice_liveness                \
     import (InvidualMecServiceLivenessController,)
-from mp1.service_mgmt.controllers.callbacks_controller                          \
-    import (CallbackController,)
-from mp1.tests.tests_controller                                                 \
-    import (TestsController,)
 
 # Application Support Controllers
 from mp1.application_support.controllers.app_traffic_rules_controller           \
@@ -37,18 +33,24 @@ from mp1.application_support.controllers.app_dns_rules_controller               
     import (AppDnsRulesController,)
 from mp1.application_support.controllers.app_timing_controller                  \
     import (AppTimingController,)
+from mp1.application_support.controllers.app_traffic_rules_controller           \
+    import (AppTrafficRulesController,)
+from mp1.application_support.controllers.app_subscriptions_controller           \
+    import (ApplicationSubscriptionsController)
 
-from mp1.application_support.controllers.app_traffic_rules_controller import AppTrafficRulesController
+
+# MEC Platform Management Controllers
+from mm5.mepm_controller import MecPlatformMgMtController
 
 
 from mp1.databases.database_base import DatabaseBase
 from mp1.databases.dbmongo import MongoDb
 from typing import Type
 import cherrypy
-import argparse
 from mp1.utils import check_port
 from mp1.models import *
 import json
+import os
 
 @json_out(cls=NestedEncoder)
 def main(database: Type[DatabaseBase]):
@@ -78,41 +80,42 @@ def main(database: Type[DatabaseBase]):
         conditions=dict(method=["POST"]),
     )
 
-    ############################################################################
-    # TODO: Remove this part before deployment
+    #######################################
+    # Application Subscription Controller #
+    #######################################
 
-    #############################
-    # Tests Controller #
-    #
-    # Only used for tests!
-    #############################
-    tests_dispatcher = cherrypy.dispatch.RoutesDispatcher()
-
-    tests_dispatcher.connect(
-        name="Update MEC App Status",
-        action="mecAppStatus_update",
-        controller=TestsController,
-        route="/applications/:appInstanceId/update_status",
-        conditions=dict(method=["PATCH"]),
+    support_dispatcher.connect(
+        name="Get an applicationInstanceId Subscriptions",
+        action="applications_subscriptions_get",
+        controller=ApplicationSubscriptionsController,
+        route="/applications/:appInstanceId/subscriptions",
+        conditions=dict(method=["GET"]),
     )
 
-    tests_dispatcher.connect(
-        name="Post MEC App Dns Rule",
-        action="dns_rule_post",
-        controller=TestsController,
-        route="/applications/:appInstanceId/dns_rules/:dnsRuleId",
+    support_dispatcher.connect(
+        name="Get an applicationInstanceId Subscriptions",
+        action="applications_subscriptions_get_with_subscription_id",
+        controller=ApplicationSubscriptionsController,
+        route="/applications/:appInstanceId/subscriptions/:subscriptionId",
+        conditions=dict(method=["GET"]),
+    )
+
+    support_dispatcher.connect(
+        name="Create applicationInstanceId Subscriptions",
+        action="applications_subscriptions_post",
+        controller=ApplicationSubscriptionsController,
+        route="/applications/:appInstanceId/subscriptions",
         conditions=dict(method=["POST"]),
     )
 
-    tests_dispatcher.connect(
-        name="Remove all collections from database",
-        action="remove_db_collections",
-        controller=TestsController,
-        route="/applications/remove_all",
-        conditions=dict(method=["POST"]),
+    support_dispatcher.connect(
+        name="Delete applicationInstanceID Subscriptions with subscriptionId",
+        action="applications_subscriptions_delete",
+        controller=ApplicationSubscriptionsController,
+        route="/applications/:appInstanceId/subscriptions/:subscriptionId",
+        conditions=dict(method=["DELETE"]),
     )
 
-    ############################################################################
 
     #################################
     # App Traffic Rules Controller  #
@@ -187,8 +190,6 @@ def main(database: Type[DatabaseBase]):
         conditions=dict(method=["GET"]),
     )
 
-
-
     #############################################
     # Application service management interface  #
     #############################################
@@ -203,7 +204,7 @@ def main(database: Type[DatabaseBase]):
     mgmt_dispatcher.connect(
         name="Get an applicationInstanceId Subscriptions",
         action="applications_subscriptions_get",
-        controller=ApplicationSubscriptionsController,
+        controller=ApplicationServicesSubscriptionsController,
         route="/applications/:appInstanceId/subscriptions",
         conditions=dict(method=["GET"]),
     )
@@ -211,7 +212,7 @@ def main(database: Type[DatabaseBase]):
     mgmt_dispatcher.connect(
         name="Get an applicationInstanceId Subscriptions",
         action="applications_subscriptions_get_with_subscription_id",
-        controller=ApplicationSubscriptionsController,
+        controller=ApplicationServicesSubscriptionsController,
         route="/applications/:appInstanceId/subscriptions/:subscriptionId",
         conditions=dict(method=["GET"]),
     )
@@ -219,7 +220,7 @@ def main(database: Type[DatabaseBase]):
     mgmt_dispatcher.connect(
         name="Create applicationInstanceId Subscriptions",
         action="applications_subscriptions_post",
-        controller=ApplicationSubscriptionsController,
+        controller=ApplicationServicesSubscriptionsController,
         route="/applications/:appInstanceId/subscriptions",
         conditions=dict(method=["POST"]),
     )
@@ -227,7 +228,7 @@ def main(database: Type[DatabaseBase]):
     mgmt_dispatcher.connect(
         name="Delete applicationInstanceID Subscriptions with subscriptionId",
         action="applications_subscriptions_delete",
-        controller=ApplicationSubscriptionsController,
+        controller=ApplicationServicesSubscriptionsController,
         route="/applications/:appInstanceId/subscriptions/:subscriptionId",
         conditions=dict(method=["DELETE"]),
     )
@@ -326,18 +327,91 @@ def main(database: Type[DatabaseBase]):
         conditions=dict(method=["PATCH"]),
     )
 
+#############################################################################
+
+    #############################################
+    # MEC Platform Management interfaces (mm5) #
+    #############################################
+    mepm_dispatcher = cherrypy.dispatch.RoutesDispatcher()
+
+    mepm_dispatcher.connect(
+        name="Configure MEC App on start-up",
+        action="mecApp_configure",
+        controller=MecPlatformMgMtController,
+        route="/applications/:appInstanceId/configure",
+        conditions=dict(mecthod=["POST"]),
+    )
+
+    mepm_dispatcher.connect(
+        name="Update MEC App Status",
+        action="mecAppStatus_update",
+        controller=MecPlatformMgMtController,
+        route="/applications/:appInstanceId/update_state",
+        conditions=dict(method=["POST"]),
+    )
+
+    mepm_dispatcher.connect(
+        name="Update MEC App Status",
+        action="mecApp_terminate",
+        controller=MecPlatformMgMtController,
+        route="/applications/:appInstanceId/terminate",
+        conditions=dict(method=["POST"]),
+    )
+
+    mepm_dispatcher.connect(
+        name="Post MEC App Dns Rule",
+        action="dns_rule_post_with_dns_rule_id",
+        controller=MecPlatformMgMtController,
+        route="/applications/:appInstanceId/dns_rule/:dnsRuleId",
+        conditions=dict(method=["POST"]),
+    )
+
+    mepm_dispatcher.connect(
+        name="Post MEC App Dns Rules",
+        action="dns_rules_post",
+        controller=MecPlatformMgMtController,
+        route="/applications/:appInstanceId/dns_rules/",
+        conditions=dict(method=["POST"]),
+    )
+
+    mepm_dispatcher.connect(
+        name="Post MEC App Traffic Rule",
+        action="traffic_rule_post_with_traffic_rule_id",
+        controller=MecPlatformMgMtController,
+        route="/applications/:appInstanceId/traffic_rule/:trafficRuleId",
+        conditions=dict(method=["POST"]),
+    )
+
+    mepm_dispatcher.connect(
+        name="Post MEC App Traffic Rules",
+        action="traffic_rules_post",
+        controller=MecPlatformMgMtController,
+        route="/applications/:appInstanceId/traffic_rules/",
+        conditions=dict(method=["POST"]),
+    )
+
+    mepm_dispatcher.connect(
+        name="Remove all collections from database",
+        action="remove_db_collections",
+        controller=MecPlatformMgMtController,
+        route="/applications/remove_all",
+        conditions=dict(method=["POST"]),
+    )
+
+    ############################################################################
 
     cherrypy.config.update(
         {"server.socket_host": "0.0.0.0", "server.socket_port": 8080}
     )
+
     supp_conf = {"/": {"request.dispatch": support_dispatcher}}
     cherrypy.tree.mount(None, "/mec_app_support/v1", config=supp_conf)
     mgmt_conf = {"/": {"request.dispatch": mgmt_dispatcher}}
     cherrypy.tree.mount(None, "/mec_service_mgmt/v1", config=mgmt_conf)
 
-    # Solely for tests (extra mp1)
-    tests_conf = {"/": {"request.dispatch": tests_dispatcher}}
-    cherrypy.tree.mount(None, "/mec_tests/v1", config=tests_conf)
+    # MEPM config (mm5 - extra mp1)
+    mecpm_conf = {"/": {"request.dispatch": mepm_dispatcher}}
+    cherrypy.tree.mount(None, "/mec_platform_mgmt/v1", config=mecpm_conf)
 
 
     # Config 404 and 403 landing pages
@@ -348,8 +422,8 @@ def main(database: Type[DatabaseBase]):
     ######################################
     # Database Connection to all threads #
     ######################################
-    if isinstance(database, DatabaseBase):
-        cherrypy.engine.subscribe("start_thread", database.connect)
+    if isinstance (database, DatabaseBase):
+        cherrypy.engine.subscribe('start_thread', database.connect)
         cherrypy.engine.start()
     else:
         cherrypy.log("Invalid database provided to MEP. Shutting down.")
@@ -362,44 +436,24 @@ def error_page_404(status, message, traceback, version):
     return json.dumps(error.message().to_json())
 
 def error_page_403(status, message, traceback, version):
-    response = cherrypy.response
-    response.headers['Content-Type'] = 'application/json'
-    errorMessage = ProblemDetails(
-        type="xxxx",
-        title="Forbidden.",
-        status=403,
-        detail="The operation is not allowed given the current status of the resource.",
-        instance="xxx"
-    )
-    return json.dumps(errorMessage.to_json())
+    error_msg = "The operation is not allowed given the current status of the resource."
+    error = Forbidden(error_msg)
+    cherrypy.response.headers['Content-Type'] = "application/problem+json"
+    return json.dumps(error.message().to_json())
 
 def error_page_400(status, message, traceback, version):
-    response = cherrypy.response
-    response.headers['Content-Type'] = 'application/json'
-    errorMessage = ProblemDetails(
-        type="xxxx",
-        title="Forbidden.",
-        status=400,
-        detail="The operation is not allowed given the current status of the resource.",
-        instance="xxx"
-    )
-    return json.dumps(errorMessage.to_json())
+    error_msg = "The operation is not allowed given the current status of the resource."
+    error = BadRequest(error_msg)
+    cherrypy.response.headers['Content-Type'] = "application/problem+json"
+    return json.dumps(error.message().to_json())
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Multi-Access Edge Computing Platform")
-
-    parser.add_argument("--mongodb_addr", help="MongoDB Address", default="127.0.0.1")
-    parser.add_argument(
-        "--mongodb_port", type=check_port, help="MongoDB port", default=27017
-    )
-    parser.add_argument(
-        "--mongodb_database", help="Database inside MongoDB", default="mep"
-    )
-    parser.add_argument("--mongodb_password", help="Password to access MongoDB")
-    parser.add_argument("--mongodb_username", help="Username to acces MongoDB")
-
-    args = parser.parse_args()
-    # TODO should be loaded form config file
-    # TODO same as therest of the dispatcher
-    main(MongoDb(args.mongodb_addr, args.mongodb_port, args.mongodb_database))
+    mongodb_addr = os.environ.get("ME_CONFIG_MONGODB_SERVER")
+    mongodb_port = os.environ.get("ME_CONFIG_MONGODB_PORT")
+    mongodb_username = os.environ.get("ME_CONFIG_MONGODB_ADMINUSERNAME")
+    mongodb_password = os.environ.get("ME_CONFIG_MONGODB_ADMINPASSWORD")
+    mongodb_database = os.environ.get("ME_CONFIG_MONGODB_DATABASE")
+    database = MongoDb(mongodb_addr, mongodb_port, mongodb_username, mongodb_password, mongodb_database)
+    
+    main(database)

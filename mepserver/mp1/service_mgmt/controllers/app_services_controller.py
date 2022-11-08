@@ -20,7 +20,7 @@ import cherrypy
 sys.path.append("../../")
 from mp1.models import *
 import uuid
-from .callbacks_controller import CallbackController
+from .services_callbacks_controller import CallbackController
 import jsonschema
 from deepdiff import DeepDiff
 

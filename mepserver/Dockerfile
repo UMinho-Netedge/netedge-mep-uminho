@@ -21,6 +21,7 @@ RUN ["apt-get", "update"]
 COPY ./ /home/netedge
 USER netedge
 ENV PATH="$PATH:/home/netedge/.local/bin"
+RUN ["/usr/local/bin/python", "-m", "pip", "install", "--upgrade", "pip"]
 RUN ["pip","install","-r","/home/netedge/requirements.txt"]
 
 ENTRYPOINT ["python3"]

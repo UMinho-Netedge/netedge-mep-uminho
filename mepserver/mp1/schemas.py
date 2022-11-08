@@ -247,6 +247,18 @@ appterminationconfirmation_schema = {
     "additionalProperties": False,
 }
 
+appTerminationNotificationSubscription_schema = {
+    "type": "object",
+    "properties": {
+        "subscriptionType": {"type": "string"},
+        "callbackReference": {"type": "string"},
+        "_links": links_schema,
+        "appInstanceId": {"type": "string"},
+    },
+    "additionalProperties": False,
+    "required": ["subscriptionType","callbackReference","appInstanceId"],
+}
+
 service_get_schema = {
     "type": "object",
     "properties": {
@@ -391,4 +403,208 @@ serviceLivenessUpdate_schema = {
     },
     "required": ["state"],
     "additionalProperties": False,
+}
+
+
+trafficFilter_schema = {
+    "type": "object",
+    "properties": {
+        "srcAddress": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "dstAddress": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "srcPort": {
+            "type": "array",
+            "items": {"type": "string"},
+        },        
+        "dstPort": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "protocol": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "tag": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "srcTunnelAddress": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "tgtTunnelAddress": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "srcTunnelPort": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "dstTunnelPort": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "qCI": {"type": "integer"},
+        "dSCP": {"type": "integer"},
+        "tC": {"type": "integer"},
+    },
+    "required": [],
+    "additionalProperties": False,
+}
+
+tunnelInfo_schema = {
+    "type": "object",
+    "properties": {
+        "tunnelType": {
+            "enum":[
+                "GTP_U",
+                "GRE"
+            ]
+        },
+        "tunnelDstAddress": {"type": "string"},
+        "tunnelSrcAddress": {"type": "string"},
+    },
+    "required": ["tunnelType"],
+    "additionalProperties": False,
+}
+
+destinationInterface_schema = {
+    "type": "object",
+    "properties": {
+        "interfaceType": {
+            "enum":[
+                "TUNNEL",
+                "MAC",
+                "IP"
+            ]
+        },
+        "tunnelInfo": tunnelInfo_schema,
+        "srcMacAddress": {"type": "string"},
+        "dstMacAddress": {"type": "string"},
+        "dstIpAddress": {"type": "string"},
+    },
+    "required": ["interfaceType"],
+    "additionalProperties": False,
+}
+
+
+trafficRule_schema = {
+    "type": "object",
+    "properties": {
+        "trafficRuleId": {"type": "string"},
+        "filterType": {
+            "enum":[
+                "FLOW",
+                "PACKET"
+            ]
+        },
+        "priority": {"type": "integer"},
+        "trafficFilter": {
+            "type": "array",
+            "items": trafficFilter_schema,
+            "minItems": 1
+        },
+        "action": {
+            "enum": [
+                "DROP",
+                "FORWARD_DECAPSULATED",
+                "FORWARD_ENCAPSULATED",
+                "PASSTHROUGH",
+                "DUPLICATE_DECAPSULATED",
+                "DUPLICATE_ENCAPSULATED"
+            ]
+        },
+        "dstInterface": {
+            "type": "array",
+            "items": destinationInterface_schema,
+            "maxItems": 2
+        },
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE"
+            ]
+        }
+    },
+    "required": ["trafficRuleId", "filterType", "priority", "trafficFilter", "action", "state"],
+    "additionalProperties": False,
+}
+
+trafficRuleDescriptor_schema = {
+    "type": "object",
+    "properties": {
+        "trafficRuleId": {"type": "string"},
+        "filterType": {
+            "enum":[
+                "FLOW",
+                "PACKET"
+            ]
+        },
+        "priority": {"type": "integer"},
+        "trafficFilter": {
+            "type": "array",
+            "items": trafficFilter_schema,
+            "minItems": 1
+        },
+        "action": {
+            "enum": [
+                "DROP",
+                "FORWARD_DECAPSULATED",
+                "FORWARD_ENCAPSULATED",
+                "PASSTHROUGH",
+                "DUPLICATE_DECAPSULATED",
+                "DUPLICATE_ENCAPSULATED"
+            ]
+        },
+        "dstInterface": {
+            "type": "array",
+            "items": destinationInterface_schema,
+            "maxItems": 2
+        }
+    },
+    "required": ["trafficRuleId", "filterType", "priority", "trafficFilter", "action", "state"],
+    "additionalProperties": False,
+}
+
+changeAppInstanceState_schema = {
+    "type": "object",
+    "properties": {
+        "appInstanceId": {"type": "string"},
+        "changeStateTo": {
+            "enum":[
+                "STARTED",
+                "STOPPED"
+            ]
+        },
+        "stopType": {
+            "enum":[
+                "FORCEFUL",
+                "GRACEFUL"
+            ]
+        },
+        "gracefulStopTimeout": {"type": "integer"} 
+    },
+    "required": ["appInstanceId", "changeStateTo"],
+    "aditionalProperties": False,
+}
+
+terminateAppInstance_schema = {
+    "type": "object",
+    "properties": {
+        "appInstanceId": {"type": "string"},
+        "terminationType": {
+            "enum":[
+                "FORCEFUL",
+                "GRACEFUL"
+            ]
+        },
+        "gracefulStopTimeout": {"type": "integer"} 
+    },
+    "required": ["appInstanceId", "terminationType"],
+    "aditionalProperties": False,
 }

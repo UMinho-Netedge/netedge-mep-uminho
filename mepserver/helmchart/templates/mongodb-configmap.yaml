@@ -12,31 +12,10 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  labels:
-    mep.service: mongo-express
-  name: mongo-express
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      mep.service: mongo-express
-  strategy: {}
-  template:
-    metadata:
-      labels:
-        mep.service: mongo-express
-    spec:
-      containers:
-        - env:
-            - name: ME_CONFIG_MONGODB_SERVER
-              value: mongodb
-          image: mongo-express
-          name: mongo-express
-          ports:
-            - containerPort: 8081
-          resources: {}
-      restartPolicy: Always
-status: {}
+  name: mongodb-configmap
+  namespace: mep
+data:
+  database_url: mongodb-service 

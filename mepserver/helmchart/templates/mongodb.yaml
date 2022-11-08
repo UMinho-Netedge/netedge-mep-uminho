@@ -16,24 +16,51 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    mep.service: mepserver
-  name: mepserver
+    mep.app: mongodb
+  name: mongodb-deployment
+  namespace: mep
 spec:
   replicas: 1
   selector:
     matchLabels:
-      mep.service: mepserver
-  strategy: {}
+      mep.app: mongodb
   template:
     metadata:
       labels:
-        mep.service: mepserver
+        mep.app: mongodb
+      namespace: mep
     spec:
       containers:
-        - image: vinicf/netedge-mepserver
-          name: mepserver
+        - image: mongo
+          name: mongodb
           ports:
-            - containerPort: 8080
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongodb_username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongodb_password
           resources: {}
       restartPolicy: Always
-status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    mep.app: mongodb
+  name: mongodb-service
+  namespace: mep
+spec:
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+  selector:
+    mep.app: mongodb
+
