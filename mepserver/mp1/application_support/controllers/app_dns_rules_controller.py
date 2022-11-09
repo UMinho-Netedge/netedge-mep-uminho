@@ -2,11 +2,16 @@ import sys
 import cherrypy
 import json
 import jsonschema
+import requests
 
 sys.path.append("../../")
 from mp1.models import *
 from deepdiff import DeepDiff
 from hashlib import md5
+
+
+
+
 
 class AppDnsRulesController:
 
@@ -152,6 +157,50 @@ class AppDnsRulesController:
             return error.message()
 
         else:
+            ##
+            prev_state = prev_dns_rule["state"]
+            new_state = new_rec["state"]
+
+            if prev_state != new_state:
+                dict_dns = cherrypy.config.get("dns")
+
+                if new_state == "ACTIVE":
+                    print("Activating DNS rule...")
+
+                    domain = prev_dns_rule["domainName"]
+                    ip = prev_dns_rule["ipAddress"]
+                    ttl = prev_dns_rule["ttl"]
+
+                    # Create dns rule via api
+                    headers = {"Content-Type": "application/json"}
+                    query = {"name": domain, "ip": ip, "ttl": ttl}
+                    
+                    url_0 = 'http://%s:%s/dns_support/v1/api/%s/record' %(dict_dns['dnsHost'], dict_dns['dnsPort'], dict_dns['dnsZone'])
+                    response = requests.post(
+                                url_0,
+                                headers=headers,
+                                params=query
+                                )
+                    print(response.json())
+
+
+                elif new_state == "INACTIVE":
+                    print("Deactivating DNS rule...")
+                    
+                    domain = prev_dns_rule["domainName"]
+
+                    # Delete dns rule via api
+                    headers = {"Content-Type": "application/json"}
+                    url = 'http://%s:%s/dns_support/v1/api/%s/record?name=%s' %(dict_dns['dnsHost'], dict_dns['dnsPort'], dict_dns['dnsZone'], domain)
+                    response = requests.delete(
+                                url,
+                                headers=headers,
+                                )
+                    print(response.json())
+
+
+            ##
+
             last_modified = prev_dns_rule['lastModified']
             print(f"\nPOST last_modified {last_modified}")
             del prev_dns_rule['appInstanceId'], prev_dns_rule['lastModified']
@@ -168,7 +217,7 @@ class AppDnsRulesController:
                 cherrypy.lib.cptools.validate_etags()
             except cherrypy.HTTPError as e:
                 error_msg = "ETag mismatch. Please try again." + str(e)
-                error = PreconditionFailed(error_msg)
+                error = Precondition(error_msg)
                 return error.message()
 
             try:
@@ -176,7 +225,7 @@ class AppDnsRulesController:
                 cherrypy.lib.cptools.validate_since()
             except cherrypy.HTTPError as e:
                 error_msg = "Mismatch on last modification date. Please try again." + str(e)
-                error = PreconditionFailed(error_msg)
+                error = Precondition(error_msg)
                 return error.message()
 
             if ("dnsRuleId" in new_rec):

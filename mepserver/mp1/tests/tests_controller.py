@@ -1,5 +1,6 @@
 import sys
 import jsonschema
+import requests
 
 sys.path.append("../../")
 from mp1.models import *
@@ -60,8 +61,6 @@ class TestsController:
             error = BadRequest(error_msg)
             return error.message()
 
-        #print(f"tests_controller new_rec:\n{new_rec}")
-
         # Generate hash
         rule = json.dumps(new_rec)
         new_etag = md5(rule.encode('utf-8')).hexdigest()
@@ -78,6 +77,27 @@ class TestsController:
         # to assure correct document override
         if cherrypy.thread_data.db.count_documents("dnsRules", query) > 0:
             cherrypy.thread_data.db.remove("dnsRules", query)
+
+        ##########  CORE DNS  ##########
+        # Create dns rule via coredns api
+        if new_rec["state"] == "ACTIVE":
+            domain = new_rec["domainName"]
+            ip = new_rec["ipAddress"]
+            ttl = new_rec["ttl"]
+
+            headers = {"Content-Type": "application/json"}
+            query = {"name": domain, "ip": ip, "ttl": ttl}
+
+            dict_dns = cherrypy.config.get("dns")
+            url_0 = 'http://%s:%s/dns_support/v1/api/%s/record' % (dict_dns["dnsHost"], dict_dns["dnsPort"], dict_dns["dnsZone"])
+            response = requests.post(
+                        url_0,
+                        headers=headers,
+                        params=query
+                        )
+            print(f"\n# DNS rule creation #\nresponse: {response.json()}\n")
+
+        ##############################
 
         new_rec = {
             "appInstanceId": appInstanceId, 

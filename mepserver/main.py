@@ -47,6 +47,7 @@ import argparse
 from mp1.utils import check_port
 from mp1.models import *
 import json
+import os
 
 @json_out(cls=NestedEncoder)
 def main(database: Type[DatabaseBase]):
@@ -401,4 +402,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     # TODO should be loaded form config file
     # TODO same as therest of the dispatcher
+
+    HOST = os.environ.get("DNS_SERVER_HOST")
+    PORT = os.environ.get("DNS_SERVER_PORT")
+    ZONE = os.environ.get("DNS_SERVER_ZONE")
+
+    DNS = dict(dnsHost=HOST, dnsPort=PORT, dnsZone=ZONE)
+
+    cherrypy.config.update({"dns": DNS})
+
     main(MongoDb(args.mongodb_addr, args.mongodb_port, args.mongodb_database))

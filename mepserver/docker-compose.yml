@@ -11,6 +11,10 @@ services:
     environment:
       USER: netedge
       PATH: "$PATH:/home/netedge/.local/bin"
+      DNS_SERVER_HOST: "172.26.114.10"
+      DNS_SERVER_PORT: "8082"
+      DNS_SERVER_ZONE: "zone0"
+
 
   mongodb:
     image: mongo
