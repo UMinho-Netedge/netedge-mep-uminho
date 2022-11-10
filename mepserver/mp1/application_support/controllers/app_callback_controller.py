@@ -94,11 +94,16 @@ class CallbackController:
     ):
 
         cherrypy.log("Starting rule configuration function")
+        cherrypy.log("Ingress and Egress:")
+        cherrypy.log(json.dumps(trafficRule.toNetworkPolicy()))
+        networkPolicy = trafficRuleToNetworkPolicy(appInstanceId=appInstanceId, trafficRuleId=trafficRule.trafficRuleId, data=trafficRule.toNetworkPolicy())
+        cherrypy.log("Network Policy")
+        cherrypy.log(json.dumps(networkPolicy))
 
         time.sleep(sleep_time)
         config.load_incluster_config()
         k8s_client = client.ApiClient()
-        networkPolicy = trafficRuleToNetworkPolicy(appInstanceId=appInstanceId, data=trafficRule.to_json())
+
         utils.create_from_dict(k8s_client, networkPolicy)
 
 

@@ -1122,23 +1122,23 @@ class TrafficFilter:
 
     @staticmethod
     def from_json(data: dict) -> TrafficFilter:
-
+        cherrypy.log("TrafficFilter from_json data:")
+        cherrypy.log(json.dumps(data))
         # First validate the json via jsonschema
-        validate(instance=data, schema=traffic_filter_schema)
-
-        srcAddress = data.pop("srcAddress")
-        dstAddress = data.pop("dstAddress")
-        srcPort = data.pop("srcPort")
-        dstPort = data.pop("dstPort")
-        protocol = data.pop("protocol")
-        token = data.pop("token")
-        srcTunnelAddress = data.pop("srcTunnelAddress")
-        tgtTunnelAddress = data.pop("tgtTunnelAddress")
-        srcTunnelPort = data.pop("srcTunnelPort")
-        dstTunnelPort = data.pop("dstTunnelPort")
-        qCI = data.pop("qCI")
-        dSCP = data.pop("dSCP")
-        tC = data.pop("tC")
+        validate(instance=data, schema=trafficFilter_schema)
+        srcAddress = data.pop("srcAddress") if "srcAddress" in data else None
+        dstAddress = data.pop("dstAddress") if "dstAddress" in data else None
+        srcPort = data.pop("srcPort") if "srcPort" in data else None
+        dstPort = data.pop("dstPort") if "dstPort" in data else None
+        protocol = data.pop("protocol") if "protocol" in data else None
+        token = data.pop("token") if "token" in data else None
+        srcTunnelAddress = data.pop("srcTunnelAddress") if "srcTunnelAddress" in data else None
+        tgtTunnelAddress = data.pop("tgtTunnelAddress") if "tgtTunnelAddress" in data else None
+        srcTunnelPort = data.pop("srcTunnelPort") if "srcTunnelPort" in data else None
+        dstTunnelPort = data.pop("dstTunnelPort") if "dstTunnelPort" in data else None
+        qCI = data.pop("qCI") if "qCI" in data else None
+        dSCP = data.pop("dSCP") if "dSCP" in data else None
+        tC = data.pop("tC") if "tC" in data else None
 
         return TrafficFilter(srcAddress = srcAddress, dstAddress = dstAddress, srcPort = srcPort,
                              dstPort = dstPort, protocol = protocol, token = token,
@@ -1165,11 +1165,11 @@ class TunnelInfo:
     @staticmethod
     def from_json(data: dict) -> TunnelInfo:
         # First validate the json via jsonschema
-        validate(instance=data, schema=tunnel_info_schema)
+        validate(instance=data, schema=tunnelInfo_schema)
 
         tunnelType = data.pop("tunnelType")
-        tunnelDstAddress = data.pop("tunnelDstAddress")
-        tunnelSrcAddress = data.pop("tunnelSrcAddress")
+        tunnelDstAddress = data.pop("tunnelDstAddress") if "tunnelDstAddress" in data else None
+        tunnelSrcAddress = data.pop("tunnelSrcAddress") if "tunnelSrcAddress" in data else None
 
         return TunnelInfo(tunnelType = tunnelType, tunnelDstAddress = tunnelDstAddress,
                           tunnelSrcAddress = tunnelSrcAddress)
@@ -1181,13 +1181,13 @@ class TunnelInfo:
 
 
 class DestinationInterface:
-    def __init__(self, interface_type: str,
+    def __init__(self, interfaceType: str,
                  tunnelInfo: TunnelInfo = None,
                  srcMacAddress: str = '',
                  dstMacAddress: str = '',
                  dstIpAddress: str= ''):
 
-        self.interface_type = interface_type
+        self.interfaceType = interfaceType
         self.tunnelInfo = tunnelInfo
         self.srcMacAddress = srcMacAddress
         self.dstMacAddress = dstMacAddress
@@ -1196,32 +1196,37 @@ class DestinationInterface:
     @staticmethod
     def from_json(data: dict) -> DestinationInterface:
         # First validate the json via jsonschema
-        validate(instance=data, schema=destination_interface_schema)
+        cherrypy.log("Destination Interface from_json data:")
+        cherrypy.log(json.dumps(data))
+        validate(instance=data, schema=destinationInterface_schema)
 
-        interface_type = data.pop("interface_type")
-        tunnelInfo = TunnelInfo(data.pop("tunnelInfo"))
-        srcMacAddress = data.pop("srcMacAddress")
-        dstMacAddress = data.pop("dstMacAddress")
-        dstIpAddress = data.pop("dstIpAddress")
+        interfaceType = data.pop("interfaceType")
+        tunnelInfo = TunnelInfo.from_json(data.pop("tunnelInfo")) if "tunnelInfo" in data else None
+        srcMacAddress = data.pop("srcMacAddress") if "srcMacAddress" in data else None
+        dstMacAddress = data.pop("dstMacAddress") if "dstMacAddress" in data else None
+        dstIpAddress = data.pop("dstIpAddress") if "dstIpAddress" in data else None
 
-        return DestinationInterface(interface_type = interface_type, tunnelInfo = tunnelInfo,
+        return DestinationInterface(interfaceType = interfaceType, tunnelInfo = tunnelInfo,
                                     srcMacAddress = srcMacAddress, dstMacAddress = dstMacAddress,
                                     dstIpAddress = dstIpAddress)
 
     def to_json(self):
-        return ignore_none_value(dict(interface_type = self.interface_type,
+        return ignore_none_value(dict(interfaceType = self.interfaceType,
                                       tunnelInfo = self.tunnelInfo, srcMacAddress = self.srcMacAddress,
                                       dstMacAddress = self.dstMacAddress, dstIpAddress = self.dstIpAddress) )
 
 
 
 class TrafficRule:
-    def __init__(self, trafficRuleId: str, filterType: str,
+    def __init__(self, 
+                 trafficRuleId: str, 
+                 filterType: str,
                  priority: int,
                  trafficFilter: List[TrafficFilter] = None,
                  action: str = '',
                  dstInterface: List[DestinationInterface] = None,
-                 state: str = ''):
+                 state: str = ''
+                ):
 
         self.trafficRuleId = trafficRuleId
         self.filterType = filterType
@@ -1235,15 +1240,22 @@ class TrafficRule:
     @staticmethod
     def from_json(data: dict) -> TrafficRule:
         validate(instance=data, schema=trafficRule_schema)
+        cherrypy.log("TrafficRule from_json data:")
+        cherrypy.log(json.dumps(data))
 
         trafficRuleId = data.pop("trafficRuleId")
         filterType = data.pop("filterType")
         priority = data.pop("priority")
-        trafficFilter = TrafficFilter(data.pop("trafficFilter"))
+        trafficFilters = data.pop("trafficFilter")
+        trafficFilter = []
+        for filter in trafficFilters:
+            trafficFilter.append(TrafficFilter.from_json(filter))
         action = data.pop("action")
-        dstInterface = DestinationInterface(data.pop("dstInterface"))
+        dstInterfaces = data.pop("dstInterface")
+        dstInterface = []
+        for interface in dstInterfaces:
+            dstInterface.append(DestinationInterface.from_json(interface))
         state = data.pop("state")
-
 
         return TrafficRule(trafficRuleId = trafficRuleId, filterType = filterType,
                             priority = priority, trafficFilter = trafficFilter, action = action,
@@ -1253,6 +1265,42 @@ class TrafficRule:
         return ignore_none_value(dict(trafficRuleId = self.trafficRuleId, filterType = self.filterType,
                                       priority = self.priority, trafficFilter = self.trafficFilter,
                                       action = self.action, dstInterface = self.dstInterface, state = self.state) )
+    
+    def toNetworkPolicy(self):
+        networkpolicy = dict(ingress=[self.getIngress()], egress=[self.getEgress()])
+        cherrypy.log(json.dumps(networkpolicy))
+        return networkpolicy
+        
+    
+    def getIngress(self):
+        addresses = []
+        for filter in self.trafficFilter:
+            addresses.append(dict(srcAddress=filter.srcAddress, srcPort=filter.srcPort))
+            
+        _from = []
+        _ports = []
+        for address in addresses:
+            for ip in address["srcAddress"]:
+                _from.append({"ipBlock": {"cidr": ip}})
+            for port in address["srcPort"]:
+                _ports.append({"port": int(port)})
+        
+        return {"from":_from, "ports":_ports}
+
+
+    def getEgress(self):
+        addresses = []
+        for filter in self.trafficFilter:
+            addresses.append(dict(dstAddress=filter.dstAddress, dstPort=filter.dstPort))
+        _to = []
+        _ports = []
+        for address in addresses:
+            for ip in address["dstAddress"]:
+                _to.append({"ipBlock": {"cidr": ip}})
+            for port in address["dstPort"]:
+                _ports.append({"port": int(port)})
+
+        return {"to":_to, "ports":_ports}
 
 
 class CurrentTime:

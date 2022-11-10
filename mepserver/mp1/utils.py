@@ -295,54 +295,23 @@ def check_port(port, base=1024):
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
     return value
 
-def trafficRuleToNetworkPolicy(appInstanceId: str, data: dict):
+def trafficRuleToNetworkPolicy(appInstanceId: str, trafficRuleId: str, data: dict):
+
     networkPolicy = {
         "apiVersion": "networking.k8s.io/v1",
         "kind": "NetworkPolicy",
         "metadata": {
-            "name": data["trafficRuleId"],
-            "namespace": appInstanceId
+            "name": "networkpolicy-%s" %trafficRuleId,
+            "namespace": "%s" %appInstanceId
         },
         "spec": {
             "podSelector": {
-                "matchLabels": {"appInstanceId": appInstanceId}
+                "matchLabels": {"appInstanceId": "%s" %appInstanceId}
             },
             "policyTypes": ["Ingress", "Egress"],
-            "ingress": 
-                {
-                    "from": {
-                        "ipBlock": {
-                            "cidr": data["trafficFilter"]["srcAddress"]
-                        },
-                        "namespaceSelector": {
-                            "matchLabels": {"appInstanceId": appInstanceId}
-                        },
-                        "podSelector": {
-                            "matchLabels": {"appInstanceId": appInstanceId}
-                        }
-                    },
-                    "ports": {
-                        {"port": data["trafficFilter"]["srcPort"]}
-                    }
-                },
-            "egress": [
-                {
-                    "to": {
-                        "ipBlock": {
-                            "cidr": data["trafficFilter"]["dstAddress"]
-                        }
-                    },
-                    "ports": {
-                        [
-                            {"port": data["trafficFilter"]["dstPort"]}
-                        ]
-                        
-                    }
-
-                }
-            ]
+            "ingress": data["ingress"],
+            "egress": data["egress"]
         }
     }
-
     return networkPolicy
     
