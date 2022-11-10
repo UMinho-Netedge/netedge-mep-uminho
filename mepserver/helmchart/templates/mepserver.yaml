@@ -33,7 +33,7 @@ spec:
       serviceAccountName: mepserver
       automountServiceAccountToken: true
       containers:
-        - image: vinicf/netedge-mepserver:0.1.38
+        - image: vinicf/netedge-mepserver:0.2.0
           name: mepserver
           ports:
             - containerPort: 8080
@@ -73,6 +73,16 @@ spec:
                 configMapKeyRef:
                   name: oauth-configmap
                   key: oauth-server-port
+            - name: DNS_API_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  name: dns-api-configmap
+                  key: dns-api-server-url
+            - name: DNS_API_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: dns-api-configmap
+                  key: dns-api-server-port
 
 ---
 apiVersion: v1
