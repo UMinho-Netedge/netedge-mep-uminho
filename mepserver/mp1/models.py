@@ -24,6 +24,7 @@ from .enums import *
 from .mep_exceptions import *
 from .schemas import *
 from uuid import UUID
+import requests
 
 import pprint # Dictionaries pretty print (for testing)
 
@@ -1671,3 +1672,21 @@ class OAuthServer:
         httpreq = request.Request("http://%s:%s/validate_token" %(self.url, self.port), data=parse.urlencode(data).encode('utf-8'), method="POST")
         response = request.urlopen(httpreq)
         return response.getcode() == 200
+
+class DnsServer:
+    def __init__(self, url: str, port: str, zone: str = "zone0") -> None:
+        self.url = url
+        self.port = port
+
+    def create_record(self, domain: str, ip: str, ttl: int):
+
+        headers = {"Content-Type": "application/json"}
+        query = {"name": domain, "ip": ip, "ttl": ttl}
+
+        url_0 = 'http://%s:%s/dns_support/v1/api/%s/record' % (self.url, self.port, self.zone)
+
+        response = requests.post(url_0, headers=headers, params=query)
+
+        print(f"\n# DNS rule creation #\nresponse: {response.json()}\n")
+
+        return response.status_code == 200

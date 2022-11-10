@@ -86,7 +86,7 @@ class CallbackController:
             callback_task.start()
     
     @staticmethod
-    def _configureRule(
+    def _configureTrafficRule(
         task,
         appInstanceId: str,
         trafficRule: TrafficRule,
@@ -94,8 +94,6 @@ class CallbackController:
     ):
 
         cherrypy.log("Starting rule configuration function")
-        cherrypy.log("Ingress and Egress:")
-        cherrypy.log(json.dumps(trafficRule.toNetworkPolicy()))
         networkPolicy = trafficRuleToNetworkPolicy(appInstanceId=appInstanceId, trafficRuleId=trafficRule.trafficRuleId, data=trafficRule.toNetworkPolicy())
         cherrypy.log("Network Policy")
         cherrypy.log(json.dumps(networkPolicy))

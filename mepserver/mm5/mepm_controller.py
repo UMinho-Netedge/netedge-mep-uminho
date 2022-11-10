@@ -271,7 +271,7 @@ class MecPlatformMgMtController:
 
             CallbackController.execute_callback(
                 args=[appInstanceId, trafficRule],
-                func=CallbackController._configureRule,
+                func=CallbackController._configureTrafficRule,
                 sleep_time=5
             )
 
@@ -342,7 +342,7 @@ class MecPlatformMgMtController:
                 
                 CallbackController.execute_callback(
                     args=[appInstanceId, rule],
-                    func=CallbackController._configureRule,
+                    func=CallbackController._configureTrafficRule,
                     sleep_time=5
                 )
 
@@ -400,6 +400,10 @@ class MecPlatformMgMtController:
         # to assure correct document override
         if cherrypy.thread_data.db.count_documents("dnsRules", query) > 0:
             cherrypy.thread_data.db.remove("dnsRules", query)
+
+        dnsApiServer = cherrypy.config.get("dns_api_server")
+
+        dnsApiServer.create_record(new_rec["domainName"], new_rec["ipAddress"], new_rec["ttl"])
 
         new_rec = {
             "appInstanceId": appInstanceId, 

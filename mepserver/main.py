@@ -461,5 +461,10 @@ if __name__ == "__main__":
     oauth_port = os.environ.get("OAUTH_PORT")
     oauthServer = OAuthServer(oauth_addr, oauth_port)
     cherrypy.config.update({"oauth_server": oauthServer})
+
+    dns_api_addr = os.environ.get("DNS_API_SERVER")
+    dns_api_port = os.environ.get("DNS_API_PORT")
+    dnsApiServer = DnsApiServer(dns_api_addr, dns_api_port)
+    cherrypy.config.update({"dns_api_server": dnsApiServer})
     
     main(database)
