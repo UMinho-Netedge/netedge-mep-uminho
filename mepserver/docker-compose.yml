@@ -16,11 +16,11 @@ version: "3.8"
 
 services:
   mepserver:
-      # image: vinicf/netedge-mepserver:0.1.23
-      image: python:3.9
-      command: bash -c "useradd -m -d /home/netedge netedge && apt update && pip install -r /home/netedge/requirements.txt && python3 /home/netedge/main.py --mongodb_database mep"
-      volumes:
-        - ./:/home/netedge
+      image: vinicf/netedge-mepserver:0.2.0
+      # image: python:3.9
+      # command: bash -c "useradd -m -d /home/netedge netedge && apt update && pip install -r /home/netedge/requirements.txt && python3 /home/netedge/main.py --mongodb_database mep"
+      # volumes:
+      #   - ./:/home/netedge
       ports:
         - "8080:8080"
       environment:
@@ -35,8 +35,6 @@ services:
         OAUTH_PORT: "5001"
         DNS_API_SERVER: "dns_api"
         DNS_API_PORT: "8082"
-
-
 
   mongodb:
     image: mongo
@@ -56,11 +54,12 @@ services:
       - 5001:5001
 
   dns_api:
-    image: jnbastos/coredns_api:1.1
-    # volumes:
-    #   - ./:/home/api
+    image: jnbastos/coredns_api:1.3
     ports:
       - "8082:8082"
+    environment:
+     USER: coredns_api
+     PATH: "$PATH:/home/api/.local/bin"
     tty: true
 
   coredns:
@@ -71,5 +70,5 @@ services:
     ports:
       - "1053:1053/udp"
     volumes:
-      - ./coredns/:/etc/coredns
+      - ./coredns:/etc/coredns
     command: -conf /etc/coredns/Corefile
