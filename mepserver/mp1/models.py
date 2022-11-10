@@ -1673,10 +1673,11 @@ class OAuthServer:
         response = request.urlopen(httpreq)
         return response.getcode() == 200
 
-class DnsServer:
+class DnsApiServer:
     def __init__(self, url: str, port: str, zone: str = "zone0") -> None:
         self.url = url
         self.port = port
+        self.zone = zone
 
     def create_record(self, domain: str, ip: str, ttl: int):
 

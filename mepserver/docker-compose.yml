@@ -33,7 +33,7 @@ services:
         ME_CONFIG_MONGODB_DATABASE: "mep"
         OAUTH_SERVER: "oauth"
         OAUTH_PORT: "5001"
-        DNS_API_SERVER: "172.26.114.10"
+        DNS_API_SERVER: "dns_api"
         DNS_API_PORT: "8082"
 
 
@@ -54,3 +54,22 @@ services:
     image: arom98/auth-server:v3.2
     ports:
       - 5001:5001
+
+  dns_api:
+    image: jnbastos/coredns_api:1.0
+    volumes:
+      - ./:/home/api
+    ports:
+      - "8082:8080"
+    tty: true
+
+  coredns:
+    image: coredns/coredns:1.10.0
+    container_name: coredns
+    hostname: coredns
+    restart: always
+    ports:
+      - "1053:1053/udp"
+    volumes:
+      - ./coredns/:/etc/coredns
+    command: -conf /etc/coredns/Corefile
