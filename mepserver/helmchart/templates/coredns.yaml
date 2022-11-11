@@ -35,9 +35,11 @@ spec:
           image: coredns/coredns:1.10.0
           ports:
           - containerPort: 1053
+            protocol: UDP
           volumeMounts:
             - name: dns-storage
               mountPath: /etc/coredns
+          args: [ "-conf", "/etc/coredns/Corefile" ]
       volumes:
         - name: dns-storage
           persistentVolumeClaim:
@@ -57,5 +59,6 @@ spec:
     - protocol: UDP
       port: 1053
       targetPort: 1053
+  type: LoadBalancer
   selector:
     mep.app: coredns

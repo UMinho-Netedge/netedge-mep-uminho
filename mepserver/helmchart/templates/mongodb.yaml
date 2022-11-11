@@ -77,7 +77,7 @@ metadata:
   name: mongodb-pvc
   namespace: mep
 spec:
-  storageClassName: manual
+  storageClassName: mongodb-class
   accessModes:
     - ReadWriteOnce
   resources:
@@ -91,7 +91,7 @@ metadata:
   labels:
     mep.app: mongodb
 spec:
-  storageClassName: manual
+  storageClassName: mongodb-class
   capacity:
     storage: 1Gi
   accessModes:

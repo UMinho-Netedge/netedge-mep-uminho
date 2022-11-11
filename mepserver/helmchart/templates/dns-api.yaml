@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
         - name: dns-api
-          image: jnbastos/coredns_api:1.4
+          image: jnbastos/coredns_api:1.5
           ports:
           - containerPort: 8082
           volumeMounts:
@@ -66,7 +66,7 @@ metadata:
   name: dns-pvc
   namespace: mep
 spec:
-  storageClassName: manual
+  storageClassName: dns-class
   accessModes:
     - ReadWriteOnce
   resources:
@@ -80,7 +80,7 @@ metadata:
   labels:
     mep.app: dns
 spec:
-  storageClassName: manual
+  storageClassName: dns-class
   capacity:
     storage: 1Gi
   accessModes:
