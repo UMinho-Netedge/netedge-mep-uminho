@@ -59,31 +59,3 @@ spec:
       targetPort: 1053
   selector:
     mep.app: coredns
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: dns-pvc
-  namespace: mep
-spec:
-  storageClassName: manual
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: dns-storage
-  labels:
-    mep.app: dns
-spec:
-  storageClassName: manual
-  capacity:
-    storage: 1Gi
-  accessModes:
-    - ReadWriteOnce
-  hostPath:
-    path: "/data/dns/"
