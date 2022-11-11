@@ -46,7 +46,13 @@ spec:
                 secretKeyRef:
                   name: mongodb-secret
                   key: mongodb_password
-          resources: {}
+          volumeMounts:
+            - name: mongodb-storage
+              mountPath: /data/db
+      volumes:
+        - name: mongodb-storage
+          persistentVolumeClaim:
+            claimName: mongodb-pvc
       restartPolicy: Always
 ---
 apiVersion: v1
@@ -63,4 +69,33 @@ spec:
       targetPort: 27017
   selector:
     mep.app: mongodb
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+  namespace: mep
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mongodb-storage
+  labels:
+    mep.app: mongodb
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data/mongodb/"
 

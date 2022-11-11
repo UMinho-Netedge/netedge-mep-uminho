@@ -55,6 +55,8 @@ services:
 
   dns_api:
     image: jnbastos/coredns_api:1.3
+    volumes:
+      - ./coredns:/tmp/coredns
     ports:
       - "8082:8082"
     environment:

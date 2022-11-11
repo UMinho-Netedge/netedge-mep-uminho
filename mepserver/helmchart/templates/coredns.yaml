@@ -17,27 +17,27 @@ kind: Deployment
 metadata:
   labels:
     mep.app: dns-api
-  name: dns-api-deployment
+  name: coredns-deployment
   namespace: mep
 spec:
   replicas: 1
   selector:
     matchLabels:
-      mep.app: dns-api
+      mep.app: coredns
   template:
     metadata:
       labels:
-        mep.app: dns-api
+        mep.app: coredns
       namespace: mep
     spec:
       containers:
-        - name: dns-api
-          image: jnbastos/coredns_api:1.4
+        - name: coredns
+          image: coredns/coredns:1.10.0
           ports:
-          - containerPort: 8082
+          - containerPort: 1053
           volumeMounts:
             - name: dns-storage
-              mountPath: /tmp/coredns
+              mountPath: /etc/coredns
       volumes:
         - name: dns-storage
           persistentVolumeClaim:
@@ -49,16 +49,16 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    mep.app: dns-api
-  name: dns-api-service
+    mep.app: coredns
+  name: coredns-service
   namespace: mep
 spec:
   ports:
-    - protocol: TCP
-      port: 8082
-      targetPort: 8082
+    - protocol: UDP
+      port: 1053
+      targetPort: 1053
   selector:
-    mep.app: dns-api
+    mep.app: coredns
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
