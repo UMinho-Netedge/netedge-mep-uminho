@@ -84,18 +84,18 @@ spec:
     requests:
       storage: 1Gi
 ---
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: mongodb-storage
-  labels:
-    mep.app: mongodb
-spec:
-  storageClassName: mongodb-class
-  capacity:
-    storage: 1Gi
-  accessModes:
-    - ReadWriteOnce
-  hostPath:
-    path: "/data/mongodb/"
+# apiVersion: v1
+# kind: PersistentVolume
+# metadata:
+#   name: mongodb-storage
+#   labels:
+#     mep.app: mongodb
+# spec:
+#   storageClassName: mongodb-class
+#   capacity:
+#     storage: 1Gi
+#   accessModes:
+#     - ReadWriteOnce
+#   hostPath:
+#     path: "/data/mongodb/"
 

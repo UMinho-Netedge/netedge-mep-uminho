@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
         - name: dns-api
-          image: jnbastos/coredns_api:1.5
+          image: jnbastos/coredns_api:1.7.2
           ports:
           - containerPort: 8082
           volumeMounts:
@@ -73,17 +73,17 @@ spec:
     requests:
       storage: 1Gi
 ---
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: dns-storage
-  labels:
-    mep.app: dns
-spec:
-  storageClassName: dns-class
-  capacity:
-    storage: 1Gi
-  accessModes:
-    - ReadWriteOnce
-  hostPath:
-    path: "/data/dns/"
+# apiVersion: v1
+# kind: PersistentVolume
+# metadata:
+#   name: dns-storage
+#   labels:
+#     mep.app: dns
+# spec:
+#   storageClassName: dns-class
+#   capacity:
+#     storage: 1Gi
+#   accessModes:
+#     - ReadWriteOnce
+#   hostPath:
+#     path: "/data/dns/"
