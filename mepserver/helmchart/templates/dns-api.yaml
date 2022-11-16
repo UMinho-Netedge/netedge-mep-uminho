@@ -32,7 +32,7 @@ spec:
     spec:
       containers:
         - name: dns-api
-          image: jnbastos/coredns_api:1.7.2
+          image: jnbastos/coredns_api:1.7.5
           ports:
           - containerPort: 8082
           volumeMounts:

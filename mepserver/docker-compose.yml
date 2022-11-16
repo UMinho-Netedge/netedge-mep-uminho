@@ -49,9 +49,14 @@ services:
       - ME_CONFIG_MONGODB_SERVER=mongodb
 
   oauth:
-    image: arom98/auth-server:v3.2
+    image: arom98/auth-server:6.7
     ports:
       - 5001:5001
+    environment:
+        ME_CONFIG_MONGODB_SERVER: "mongodb"
+        ME_CONFIG_MONGODB_PORT: 27017
+        ME_CONFIG_MONGODB_ADMINUSERNAME: ""
+        ME_CONFIG_MONGODB_ADMINPASSWORD: ""
 
   dns_api:
     image: jnbastos/coredns_api:1.3

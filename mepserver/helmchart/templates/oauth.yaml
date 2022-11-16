@@ -32,9 +32,35 @@ spec:
     spec:
       containers:
         - name: oauth
-          image: arom98/auth-server:v3.2
+          image: arom98/auth-server:6.7
           ports:
           - containerPort: 5001
+          env:
+            - name: ME_CONFIG_MONGODB_SERVER
+              valueFrom:
+                configMapKeyRef:
+                  name: mongodb-configmap
+                  key: database_url
+            - name: ME_CONFIG_MONGODB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: mongodb-configmap
+                  key: database_port
+            - name: ME_CONFIG_MONGODB_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: mongodb-configmap
+                  key: database_name
+            - name: ME_CONFIG_MONGODB_ADMINUSERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongodb_username
+            - name: ME_CONFIG_MONGODB_ADMINPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongodb_password
       restartPolicy: Always
 ---
 apiVersion: v1

@@ -123,7 +123,7 @@ class Links:
         _self = LinkType(data["self"]["href"])
         subscriptions = None
         if "subscriptions" in data and len(data["subscriptions"]) > 0:
-            cherrypy.log(json.dumps(data["subscriptions"]))
+            # cherrypy.log(json.dumps(data["subscriptions"]))
             subscriptions = [
                 Subscription(**subscription) for subscription in data["subscriptions"]
             ]
@@ -1123,8 +1123,8 @@ class TrafficFilter:
 
     @staticmethod
     def from_json(data: dict) -> TrafficFilter:
-        cherrypy.log("TrafficFilter from_json data:")
-        cherrypy.log(json.dumps(data))
+        # cherrypy.log("TrafficFilter from_json data:")
+        # cherrypy.log(json.dumps(data))
         # First validate the json via jsonschema
         validate(instance=data, schema=trafficFilter_schema)
         srcAddress = data.pop("srcAddress") if "srcAddress" in data else None
@@ -1197,8 +1197,8 @@ class DestinationInterface:
     @staticmethod
     def from_json(data: dict) -> DestinationInterface:
         # First validate the json via jsonschema
-        cherrypy.log("Destination Interface from_json data:")
-        cherrypy.log(json.dumps(data))
+        # cherrypy.log("Destination Interface from_json data:")
+        # cherrypy.log(json.dumps(data))
         validate(instance=data, schema=destinationInterface_schema)
 
         interfaceType = data.pop("interfaceType")
@@ -1241,8 +1241,8 @@ class TrafficRule:
     @staticmethod
     def from_json(data: dict) -> TrafficRule:
         validate(instance=data, schema=trafficRule_schema)
-        cherrypy.log("TrafficRule from_json data:")
-        cherrypy.log(json.dumps(data))
+        # cherrypy.log("TrafficRule from_json data:")
+        # cherrypy.log(json.dumps(data))
 
         trafficRuleId = data.pop("trafficRuleId")
         filterType = data.pop("filterType")
@@ -1269,7 +1269,7 @@ class TrafficRule:
     
     def toNetworkPolicy(self):
         networkpolicy = dict(ingress=[self.getIngress()], egress=[self.getEgress()])
-        cherrypy.log(json.dumps(networkpolicy))
+        # cherrypy.log(json.dumps(networkpolicy))
         return networkpolicy
         
     
@@ -1366,10 +1366,10 @@ class ServiceLivenessInfo:
     def from_json(data: dict) -> ServiceLivenessInfo:
         # First validate the json via jsonschema
 
-        cherrypy.log("validade timestamp")
+        # cherrypy.log("validade timestamp")
         validate(instance = data["timeStamp"][0], schema = timeStamp_schema)
 
-        cherrypy.log("validate service liveness info")
+        # cherrypy.log("validate service liveness info")
         validate(instance=data, schema=serviceLivenessInfo_schema)
 
         state = data.pop("state")
@@ -1389,7 +1389,7 @@ class ServiceLivenessUpdate:
     @staticmethod
     def from_json(data: dict) -> ServiceLivenessInfo:
         # First validate the json via jsonschema
-        cherrypy.log("validate service liveness update")
+        # cherrypy.log("validate service liveness update")
         validate(instance=data, schema=serviceLivenessUpdate_schema)
         state = data.pop("state")
 
@@ -1450,13 +1450,19 @@ class DNSRuleDescriptor:
 class LatencyDescriptor:
     def __init__(self) -> None:
         pass
+    def from_json():
+        pass
 
 class UserContextTransferCapility:
     def __init__(self) -> None:
         pass
+    def from_json():
+        pass
 
 class AppNetworkPolicy:
     def __init__(self) -> None:
+        pass
+    def from_json():
         pass
 
 class ConfigPlatformForAppRequest:
@@ -1489,56 +1495,56 @@ class ConfigPlatformForAppRequest:
         try:
             appServiceRequired = []
             for svc in data["appServiceRequired"]:
-                appServiceRequired.insert(ServiceDependency.from_json(svc))
+                appServiceRequired.append(ServiceDependency.from_json(svc))
         except KeyError:
             appServiceRequired = None
             
         try:
             appServiceOptional = []
             for svc in data["appServiceOptional"]:
-                appServiceOptional.insert(ServiceDependency.from_json(svc))
+                appServiceOptional.append(ServiceDependency.from_json(svc))
         except KeyError:
             appServiceOptional = None
         
         try:
             appServiceProduced = []
             for svc in data["appServiceProduced"]:
-                appServiceProduced.insert(ServiceDescriptor.from_json(svc))
+                appServiceProduced.append(ServiceDescriptor.from_json(svc))
         except KeyError:
             appServiceProduced = None
 
         try:
             appFeatureRequired = []
             for ft in data["appFeatureRequired"]:
-                appFeatureRequired.insert(FeatureDependency.from_json(ft))
+                appFeatureRequired.append(FeatureDependency.from_json(ft))
         except KeyError:
             appFeatureRequired = None
 
         try:
             appFeatureOptional = []
             for ft in data["appFeatureOptional"]:
-                appFeatureOptional.insert(FeatureDependency.from_json(ft))
+                appFeatureOptional.append(FeatureDependency.from_json(ft))
         except KeyError:
             appFeatureOptional = None
 
         try:
             transportDependencies = []
             for td in data["transportDependencies"]:
-                transportDependencies.insert(TransportDependency.from_json(td))
+                transportDependencies.append(TransportDependency.from_json(td))
         except KeyError:
             transportDependencies = None
 
         try:
             appTrafficRule = []
             for tr in data["appTrafficRule"]:
-                appTrafficRule.insert(TrafficRuleDescriptor.from_json(tr))
+                appTrafficRule.append(TrafficRuleDescriptor.from_json(tr))
         except KeyError:
             appTrafficRule = None
 
         try:
             appDNSRule = []
             for dr in data["appDNSRule"]:
-                appDNSRule.insert(DNSRuleDescriptor.from_json(dr))
+                appDNSRule.append(DNSRuleDescriptor.from_json(dr))
         except KeyError:
             appDNSRule = None
 
@@ -1655,23 +1661,33 @@ class OAuthServer:
         self.port = port
     
     def register(self):
-        httpreq = request.Request("http://%s:%s/register" %(self.url, self.port), method="GET")
-        response = request.urlopen(httpreq)
-        jsonobject = json.loads(response.read())
-        return dict(client_id=jsonobject["client_id"], client_secret=jsonobject["client_secret"])
+        response = requests.get("http://%s:%s/register" %(self.url, self.port))
+        response = json.loads(response.content)
+        if (response['message'] == 'Client registered successfully'):
+            response.pop('message')
+            return response
+        
+        return False
+        
     
     def get_token(self, client_id:str, client_secret:str):
         credentials = dict(grant_type="client_credentials", client_id=client_id, client_secret=client_secret)
-        httpreq = request.Request("http://%s:%s/token" %(self.url, self.port), data=parse.urlencode(credentials).encode('utf-8'), method="POST")
-        response = request.urlopen(httpreq)
-        jsonobject = json.loads(response.read())
-        return jsonobject["access_token"]
+        response = requests.post("http://%s:%s/token" %(self.url, self.port), json=credentials)
+        if response.status_code == 200:
+            token = json.loads(response.content)['access_token']
+            return token
+        
+        return False
     
     def validate_token(self, access_token:str):
         data = dict(access_token=access_token)
-        httpreq = request.Request("http://%s:%s/validate_token" %(self.url, self.port), data=parse.urlencode(data).encode('utf-8'), method="POST")
-        response = request.urlopen(httpreq)
-        return response.getcode() == 200
+        response = requests.post("http://%s:%s/validate_token" %(self.url, self.port), json=data)
+        return response.status_code == 200
+    
+    def delete_client(self, client_id:str, client_secret:str):
+        credentials = dict(client_id=client_id, client_secret=client_secret)
+        response = requests.post("http://%s:%s/delete" %(self.url, self.port), json=credentials)        
+        return response.status_code == 200
 
 class DnsApiServer:
     def __init__(self, url: str, port: str, zone: str = "zone0") -> None:
@@ -1688,6 +1704,16 @@ class DnsApiServer:
 
         response = requests.post(url_0, headers=headers, params=query)
 
-        print(f"\n# DNS rule creation #\nresponse: {response.json()}\n")
+        # print(f"\n# DNS rule creation #\nresponse: {response.json()}\n")
+
+        return response.status_code == 200
+
+    def remove_record(self, domain: str):
+        
+        headers = {"Content-Type": "application/json"}
+        
+        url = 'http://%s:%s/dns_support/v1/api/%s/record?name=%s' %(self.url, self.port, self.zone, domain)
+        
+        response = requests.delete(url, headers=headers)
 
         return response.status_code == 200
