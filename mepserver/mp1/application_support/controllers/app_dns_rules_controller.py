@@ -16,6 +16,7 @@ import sys
 import cherrypy
 import json
 import jsonschema
+import requests
 
 sys.path.append("../../")
 from mp1.models import *
@@ -29,27 +30,53 @@ class AppDnsRulesController:
         self, 
         appInstanceId: str, 
         **kwargs):
+        """
+        This method retrieves information about all the DNS rules associated with 
+        a MEC application instance, which follows the resource data type of 
+        "DnsRule" as specified in clause 7.1.2.3.
         
+        :param appInstanceId: Identifier of the MEC application instance.
+        :type appInstanceId: str
+        :rtype: DnsRule
+
+        HTTP Success Responses:
+            200: OK
+        :return: A list of DNS rules associated with the MEC application instance.
+        :rtype: List[DnsRule]
+
+        HTTP Error Responses:
+            400: Bad Request
+            404: Not Found
+            403: Forbidden
+        :return: Error message
+        :rtype: ProblemDetails
+        """
+        
+        # Check if there is any paramater that is not expected
         if kwargs != {}:
             error_msg = "Invalid attribute(s): %s" % (str(kwargs))
             error = BadRequest(error_msg)
             return error.message()
 
+        # Check if the appInstanceId exists in "appStatus" collection (mongodb)
         query = dict(appInstanceId=appInstanceId)
         result = cherrypy.thread_data.db.query_col("appStatus", 
                                                     query, 
                                                     find_one=True)
-        if result:  # app exists
-            print(f"result length: {len(result)} # result: {result}")
+        if result:
+            # Check if the app is READY. If not, return 403 Forbidden
             if result['indication'] != IndicationType.READY.name:
                 error_msg = "App %s state isn't READY." % (appInstanceId)
                 error = Forbidden(error_msg)
                 return error.message()
         else:
+            # If the appInstanceId doesn't exist, return 404 Not Found
             error_msg = "Application %s was not found." % (appInstanceId)
             error = NotFound(error_msg)
             return error.message()
 
+        # The app is READY. So, we can get the "ACTIVE" DNS rules associated 
+        # with the appInstanceId and return them
         query = query | {"state": "ACTIVE"}
         result = cherrypy.thread_data.db.query_col("dnsRules", query)
         
@@ -64,58 +91,84 @@ class AppDnsRulesController:
         dnsRuleId: str,
         **kwargs
         ):
+        """
+        This method retrieves information about a DNS rule associated with a MEC
+        application instance.
 
+        :param appInstanceId: Identifier of the MEC application instance.
+        :type appInstanceId: str
+        :param dnsRuleId: Identifier of the DNS rule.
+        :type dnsRuleId: str
+
+        HTTP Success Responses:
+            200: OK
+        :return: The DNS rule with the given Id associated with the MEC application instance Id also given.
+        :rtype: DnsRule
+
+        HTTP Error Responses:
+            400: Bad Request
+            404: Not Found
+            403: Forbidden
+        :return: Error message
+        :rtype: ProblemDetails
+        """
+
+        # Check if there is any paramater that is not expected
         if kwargs != {}:
             error_msg = "Invalid attribute(s): %s" % (str(kwargs))
             error = BadRequest(error_msg)
             return error.message()
 
+        # Check if the appInstanceId exists in "appStatus" collection (mongodb)
         query = dict(appInstanceId=appInstanceId)
         app_status = cherrypy.thread_data.db.query_col("appStatus", 
                                                     query, 
                                                     find_one=True)
-        # If App exists
         if app_status:
-            # App READY
+            # Check if the app is READY. If not, return 403 Forbidden
             if app_status['indication'] == IndicationType.READY.name:
+                # Check if exists the DNS rule with the given dnsRuleId and 
+                # appInstanceId in "dnsRules" collection (mongodb)
                 query = query | {"dnsRuleId": dnsRuleId}
                 result = cherrypy.thread_data.db.query_col("dnsRules", 
                                                             query,
                                                             find_one=True)
-                # If Rule exists
                 if result:
-                    # dnsRuleId ACTIVE 
+                    # Check if the DNS rule is ACTIVE. If not, return 403 Forbidden
                     if result['state'] == StateType.ACTIVE.name:
                         last_modified = result['lastModified']
-
+                        
+                        # Generate ETag from the DNS rule
                         del result['lastModified'], result['appInstanceId']
-
-                        # Generate hash
                         rule = json.dumps(result)
                         new_etag = md5(rule.encode('utf-8')).hexdigest()
-                        print(f"\nGET new_etag: {new_etag}")
 
-                        # Add headers
+                        # Add headers to response with the ETag and Last-Modified 
+                        # values of the DNS rule
                         cherrypy.response.headers['ETag'] = new_etag
                         cherrypy.response.headers['Last-Modified'] = last_modified
 
                         cherrypy.response.status = 200
                         return result
                     else:
+                        # If the DNS rule is not ACTIVE, return 403 Forbidden
                         error_msg = "DNS rule %s state is not ACTIVE." % (dnsRuleId)
                         error = Forbidden(error_msg)
                         return error.message()
                 else:
+                    # If the DNS rule doesn't exist, return 404 Not Found
                     error_msg = "DNS rule %s was not found." % (dnsRuleId)
                     error = NotFound(error_msg)
                     return error.message()
 
             else:
+                # If the app is not READY, return 403 Forbidden
                 error_msg = "Application %s state isn't READY." % (appInstanceId)
                 error = Forbidden(error_msg)
                 return error.message()
 
         else:
+            # If the appInstanceId doesn't exist, return 404 Not Found
             error_msg = "Application %s was not found." % (appInstanceId)
             error = NotFound(error_msg)
             return error.message()
@@ -124,20 +177,45 @@ class AppDnsRulesController:
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
     def dns_rules_put(self, appInstanceId: str, dnsRuleId: str):
+        """
+        This method activates, de-activates or updates a DNS rule.
+
+        :param appInstanceId: Identifier of the MEC application instance.
+        :type appInstanceId: str
+        :param dnsRuleId: Identifier of the DNS rule.
+        :type dnsRuleId: str
+
+        HTTP Success Responses:
+            200: OK
+        :return: The DNS rule updated.
+        :rtype: DnsRule
+
+        HTTP Error Responses:
+            400: Bad Request
+            404: Not Found
+            403: Forbidden
+            412: Precondition Failed
+        :return: Error message
+        :rtype: ProblemDetails
+        """
         
+        # Get the request body
         data = cherrypy.request.json
 
+        # Validate the request body with the DnsRule schema
         try:
             dnsRule = DnsRule.from_json(data, schema=dns_rule_put_schema)
         except (TypeError, jsonschema.exceptions.ValidationError) as e:
             error = BadRequest(e)
             return error.message()
 
+        # Check if dnsRuleId in URI is the same as the one in the request body
         new_rec = dnsRule.to_json()
         if ("dnsRuleId" in new_rec) and (new_rec["dnsRuleId"]!= dnsRuleId):
             error_msg = "dnsRuleId in request body must match the one in URI."
             error = BadRequest(error_msg)
             return error.message()
+
 
         appStatus = cherrypy.thread_data.db.query_col(
             "appStatus",
@@ -151,21 +229,67 @@ class AppDnsRulesController:
             find_one=True,)
 
         if appStatus is None:
+            # If appInstanceId doesn't exist in "appStatus" collection, returns 404 Not Found
             error_msg = "Application %s was not found." % (appInstanceId)
             error = NotFound(error_msg)
             return error.message()
 
         elif appStatus["indication"] != IndicationType.READY.name:
+            # If app is not READY, returns 403 Forbidden
             error_msg = "App %s isn't in READY state." % (appInstanceId)
             error = Forbidden(error_msg)
             return error.message()
         
         elif prev_dns_rule is None:
+            # If dnsRuleId doesn't exist in "dnsRules" collection, returns 404 Not Found
             error_msg = "DNS rule %s was not found." % (dnsRuleId)
             error = NotFound(error_msg)
             return error.message()
 
         else:
+            # App is READY and dnsRuleId exists in "dnsRules" collection
+            
+            prev_state = prev_dns_rule["state"]
+            new_state = new_rec["state"]
+
+            if prev_state != new_state:
+                # If there is a change in the state of the DNS rule, check if it is valid
+
+                dict_dns = cherrypy.config.get("dns")
+
+                # If the DNS rule state changed from INACTIVE to ACTIVE
+                if new_state == "ACTIVE":
+                    domain = prev_dns_rule["domainName"]
+                    ip = prev_dns_rule["ipAddress"]
+                    ttl = prev_dns_rule["ttl"]
+
+                    # Create DNS rule in the DNS server (via API)
+                    headers = {"Content-Type": "application/json"}
+                    query = {"name": domain, "ip": ip, "ttl": ttl}
+                    
+                    url_0 = 'http://%s:%s/dns_support/v1/api/%s/record' %(dict_dns['dnsHost'], dict_dns['dnsPort'], dict_dns['dnsZone'])
+                    response = requests.post(
+                                url_0,
+                                headers=headers,
+                                params=query
+                                )
+
+                # If the DNS rule state changed from ACTIVE to INACTIVE
+                elif new_state == "INACTIVE":
+                    print("Deactivating DNS rule...")
+                    
+                    domain = prev_dns_rule["domainName"]
+
+                    # Delete DNS rule in the DNS server (via API)
+                    headers = {"Content-Type": "application/json"}
+                    url = 'http://%s:%s/dns_support/v1/api/%s/record?name=%s' %(dict_dns['dnsHost'], dict_dns['dnsPort'], dict_dns['dnsZone'], domain)
+                    response = requests.delete(
+                                url,
+                                headers=headers,
+                                )
+
+            ##
+
             last_modified = prev_dns_rule['lastModified']
             print(f"\nPOST last_modified {last_modified}")
             del prev_dns_rule['appInstanceId'], prev_dns_rule['lastModified']
@@ -219,7 +343,5 @@ class AppDnsRulesController:
             
             
             return dns_rule_dict
-
-        # TODO: 412 Precondition Failed
 
        

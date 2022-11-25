@@ -466,5 +466,14 @@ if __name__ == "__main__":
     dns_api_port = os.environ.get("DNS_API_PORT")
     dnsApiServer = DnsApiServer(dns_api_addr, dns_api_port)
     cherrypy.config.update({"dns_api_server": dnsApiServer})
+
+
+    HOST = os.environ.get("DNS_SERVER_HOST")
+    PORT = os.environ.get("DNS_SERVER_PORT")
+    ZONE = os.environ.get("DNS_SERVER_ZONE")
+
+    DNS = dict(dnsHost=HOST, dnsPort=PORT, dnsZone=ZONE)
+
+    cherrypy.config.update({"dns": DNS})
     
     main(database)
