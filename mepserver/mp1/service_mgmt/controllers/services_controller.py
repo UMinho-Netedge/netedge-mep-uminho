@@ -1,4 +1,4 @@
-# Copyright 2022 Instituto de Telecomunicações - Aveiro
+# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -114,16 +114,6 @@ class ServicesController:
             # remove them from the result (list of all services)
             res = []
             for idx, service_info in enumerate(result):
-                '''
-                print(f"result len: {len(result)}")
-                print(f"enumerate len: {len(enumerate(result))}")
-                print(f"idx: {idx}")
-                print(f"service_info:\n{service_info}")
-                
-                if service_info["serInstanceId"] in servs_to_del:
-                    del res[idx]
-                    print("Hurray. I found one service to delete.")
-                '''
                 if service_info["serInstanceId"] not in servs_to_del:
                     res.append(service_info)
             print(f"result:\n{res}")

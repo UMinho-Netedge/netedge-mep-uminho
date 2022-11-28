@@ -1,4 +1,4 @@
-# Copyright 2022 Instituto de Telecomunicações - Aveiro
+# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@ import argparse
 from abc import ABC, abstractmethod
 from . import models
 import re
+import pprint as pp
+
 #from .models import ProblemDetails
 
 # Camel case to snake case
@@ -292,3 +294,24 @@ def check_port(port, base=1024):
     if value <= base:
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
     return value
+
+def trafficRuleToNetworkPolicy(appInstanceId: str, trafficRuleId: str, data: dict):
+
+    networkPolicy = {
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "NetworkPolicy",
+        "metadata": {
+            "name": "networkpolicy-%s" %trafficRuleId,
+            "namespace": "%s" %appInstanceId
+        },
+        "spec": {
+            "podSelector": {
+                "matchLabels": {"appInstanceId": "%s" %appInstanceId}
+            },
+            "policyTypes": ["Ingress", "Egress"],
+            "ingress": data["ingress"],
+            "egress": data["egress"]
+        }
+    }
+    return networkPolicy
+    

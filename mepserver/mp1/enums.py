@@ -1,4 +1,4 @@
-# Copyright 2022 Instituto de Telecomunicações - Aveiro
+# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -61,6 +61,9 @@ class OperationActionType(Enum):
     STOPPING = "STOPPING"
     TERMINATING = "TERMINATING"
 
+    def __str__(self):
+        return self.name
+
 
 class ChangeType(Enum):
     ADDED = "ADDED"  # New service was added
@@ -92,3 +95,49 @@ class InterfaceType(Enum):
 class TunnelType(Enum):
     GTP_U = "GTP_U"
     GRE = "GRE"
+
+class IpAddressType(Enum):
+    IP_V4 = "IP_V4"
+    IP_V6 = "IP_V6"
+
+class StateType(Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+
+class TimeSourceStatus(Enum):
+    TRACEABLE = "TRACEABLE"
+    UNTRACEABLE = "UNTRACEABLE"
+
+class NtpServerAddrType(Enum):
+    IP_ADDRESS = "IP_ADDRESS"
+    DNS_NAME = "DNS_NAME"
+
+class AuthenticationOption(Enum):
+    NONE = "NONE"
+    SYMMETRIC_KEY = "SYMMETRIC_KEY"
+    AUTO_KEY = "AUTO_KEY"
+
+class ChangeStateTo(Enum):
+    STARTED = "STARTED"
+    STOPPED = "STOPPED"
+
+class StopType(Enum):
+    FORCEFUL = "FORCEFUL"
+    GRACEFUL = "GRACEFUL"
+
+class TerminationType(Enum):
+    FORCEFUL = "FORCEFUL"
+    GRACEFUL = "GRACEFUL"
+
+class OperationStatus(Enum):
+    PROCESSING = "PROCESSING"
+    SUCCESSFULLY_DONE = "SUCCESSFULLY_DONE"
+    FAILED = "FAILED"
+
+class InstantiationState(Enum):
+    NOT_INSTANTIATED = "NOT_INSTANTIATED"
+    INSTANTIATED = "INSTANTIATED"
+
+class OperationalState(Enum):
+    STARTED = "STARTED"
+    STOPPED = "STOPPED"

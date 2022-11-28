@@ -1,0 +1,101 @@
+# Copyright 2022 Centro ALGORITMI - University of Minho
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+#     Unless required by applicable law or agreed to in writing, software
+#     distributed under the License is distributed on an "AS IS" BASIS,
+#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#     See the License for the specific language governing permissions and
+#     limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    mep.app: mongodb
+  name: mongodb-deployment
+  namespace: mep
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      mep.app: mongodb
+  template:
+    metadata:
+      labels:
+        mep.app: mongodb
+      namespace: mep
+    spec:
+      containers:
+        - image: mongo
+          name: mongodb
+          ports:
+            - containerPort: 27017
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongodb_username
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongodb_password
+          volumeMounts:
+            - name: mongodb-storage
+              mountPath: /data/db
+      volumes:
+        - name: mongodb-storage
+          persistentVolumeClaim:
+            claimName: mongodb-pvc
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    mep.app: mongodb
+  name: mongodb-service
+  namespace: mep
+spec:
+  ports:
+    - protocol: TCP
+      port: 27017
+      targetPort: 27017
+  selector:
+    mep.app: mongodb
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-pvc
+  namespace: mep
+spec:
+  storageClassName: mongodb-class
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# apiVersion: v1
+# kind: PersistentVolume
+# metadata:
+#   name: mongodb-storage
+#   labels:
+#     mep.app: mongodb
+# spec:
+#   storageClassName: mongodb-class
+#   capacity:
+#     storage: 1Gi
+#   accessModes:
+#     - ReadWriteOnce
+#   hostPath:
+#     path: "/data/mongodb/"
+

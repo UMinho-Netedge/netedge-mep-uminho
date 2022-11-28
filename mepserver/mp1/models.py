@@ -1,4 +1,4 @@
-# Copyright 2022 Instituto de Telecomunicações - Aveiro
+# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +13,18 @@
 #     limitations under the License.
 
 from __future__ import annotations
+from os import times
+import string
 from typing import List, Union
 from jsonschema import validate
 import cherrypy
-
+from urllib import request, parse
 from .utils import *
 from .enums import *
 from .mep_exceptions import *
 from .schemas import *
 from uuid import UUID
+import requests
 
 import pprint # Dictionaries pretty print (for testing)
 
@@ -120,7 +123,7 @@ class Links:
         _self = LinkType(data["self"]["href"])
         subscriptions = None
         if "subscriptions" in data and len(data["subscriptions"]) > 0:
-            cherrypy.log(json.dumps(data["subscriptions"]))
+            # cherrypy.log(json.dumps(data["subscriptions"]))
             subscriptions = [
                 Subscription(**subscription) for subscription in data["subscriptions"]
             ]
@@ -546,7 +549,7 @@ class TransportInfo:
             name: str,
             type: TransportType,
             version: str,
-            endpoint: [EndPointInfo.Addresses, EndPointInfo.Uris, EndPointInfo.Alternative],
+            endpoint: Union(EndPointInfo.Addresses, EndPointInfo.Uris, EndPointInfo.Alternative),
             security: SecurityInfo,
             description: str = "",
             implSpecificInfo: str = "",
@@ -841,6 +844,59 @@ class ServiceGet:
                 "\nis_local: "+str(self.is_local)
 
 
+class DnsRule:
+    def __init__(
+        self,
+        dnsRuleId: str = None,
+        domainName: str = None,
+        ipAddressType: IpAddressType = None,
+        ipAddress: str = None,
+        ttl: int = None,
+        state: StateType = None,
+        ):
+
+        self.dnsRuleId = dnsRuleId
+        self.domainName = domainName
+        self.ipAddressType = ipAddressType
+        self.ipAddress = ipAddress
+        self.ttl = ttl
+        self.state = state
+
+    @staticmethod
+    def from_json(data: dict, schema=dns_rule_schema) -> DnsRule:
+        # Validate the json via json schema
+        validate(instance=data, schema=schema)
+        
+        kwargs = {}
+        for attribute in data.keys():
+            if attribute == "ipAddressType":
+                kwargs['ipAddressType'] = IpAddressType(data["ipAddressType"])
+            elif attribute == "ttl":
+                kwargs['ttl'] = int(data["ttl"])
+            elif attribute == "state":
+                kwargs['state'] = StateType(data["state"])
+            else:
+                kwargs[attribute] = data[attribute]
+        
+        return DnsRule(**kwargs)
+
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                dnsRuleId = self.dnsRuleId,
+                domainName = self.domainName,
+                ipAddressType = self.ipAddressType.name if self.ipAddressType is not None else None,
+                ipAddress = self.ipAddress,
+                ttl = self.ttl,
+                state = self.state.name if self.state is not None else None,
+                )
+            )
+    
+    def __str__(self):
+        return str(self.ipAddressType)
+
+
 ####################################
 # Classes used by support api      #
 ####################################
@@ -877,7 +933,64 @@ class AppTerminationConfirmation:
 
     def to_json(self):
         return ignore_none_value(dict(operationAction=self.operationAction))
+    
+    def __str__(self):
+        return str(self.operationAction)
 
+class AppTerminationNotificationSubscription:
+    def __init__(self, callbackReference: str, _links: Links, appInstanceId: str, subscriptionType: str = "AppTerminationNotificationSubscription"):
+        self.subscriptionType = subscriptionType
+        self.callbackReference = callbackReference
+        self._links = _links
+        self.appInstanceId = appInstanceId
+
+    def from_json(data: dict):
+        validate(instance=data, schema=appTerminationNotificationSubscription_schema)
+        callbackReference = data.pop("callbackReference")
+        appInstanceId = data.pop("appInstanceId")
+        subscriptionType = data.pop("subscriptionType")
+        try:
+            _links = Links.from_json(data["_links"])
+        except KeyError:
+            _links = None
+
+        return AppTerminationNotificationSubscription(
+            callbackReference=callbackReference,
+            _links=_links,
+            appInstanceId=appInstanceId,
+            subscriptionType=subscriptionType
+            )
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                    subscriptionType=self.subscriptionType,
+                    callbackReference=self.callbackReference,
+                    _links=self._links,
+                    appInstanceId=self.appInstanceId
+
+                )
+            )
+
+class AppTerminationNotification:
+    def __init__(self, operationAction: OperationActionType, maxGracefulTimeout: int, _links: LinkType, notificationType: str = "AppTerminationNotification") -> None:
+        self.notificationType = notificationType
+        self.operationAction = operationAction
+        self.maxGracefulTimeout = maxGracefulTimeout
+        self._links = _links
+    
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                notificationType=self.notificationType,
+                operationAction=self.operationAction,
+                maxGracefulTimeout=self.maxGracefulTimeout,
+                _links=self._links
+            )
+        )
+
+#################
+# ERROR CLASSES #
+#################
 
 class Error:
     def __init__(self, type: str, title: str, status: int, detail: str, instance: str):
@@ -907,7 +1020,7 @@ class BadRequest(Error):
             title="Incorrect parameters were passed to the request",
             status=400,
             detail=str(e).split('\n')[0],
-            instance="xxx"
+            instance=cherrypy.request.path_info
         )
 
 
@@ -930,7 +1043,7 @@ class NotFound(Error):
             title="The URI cannot be mapped to a valid resource URI.",
             status=404,
             detail=detail,
-            instance="xxx"
+            instance=cherrypy.request.path_info
         )
 
 
@@ -942,7 +1055,7 @@ class Conflict(Error):
             title="The operation is not allowed due to a conflict with the state of the resource",
             status=409,
             detail=detail,
-            instance="xxx"
+            instance=cherrypy.request.path_info
         )
 
 class Precondition(Error):
@@ -953,7 +1066,7 @@ class Precondition(Error):
             title="The operation is not allowed due to a conflict with the state of the resource",
             status=412,
             detail=detail,
-            instance="xxx"
+            instance=cherrypy.request.path_info
         )
 
 class URITooLong(Error):
@@ -968,7 +1081,7 @@ class URITooLong(Error):
         )
 
 class TooManyRequests(Error):
-    def __init__(self, detail : str = "Rate limiter has been triggered"):
+    def __init__(self, detail : str = "Exceeded number of requests, the rate limiter has been triggered"):
         Error.__init__(
             self,
             type="about:blank",
@@ -1010,23 +1123,23 @@ class TrafficFilter:
 
     @staticmethod
     def from_json(data: dict) -> TrafficFilter:
-
+        # cherrypy.log("TrafficFilter from_json data:")
+        # cherrypy.log(json.dumps(data))
         # First validate the json via jsonschema
-        validate(instance=data, schema=traffic_filter_schema)
-
-        srcAddress = data.pop("srcAddress")
-        dstAddress = data.pop("dstAddress")
-        srcPort = data.pop("srcPort")
-        dstPort = data.pop("dstPort")
-        protocol = data.pop("protocol")
-        token = data.pop("token")
-        srcTunnelAddress = data.pop("srcTunnelAddress")
-        tgtTunnelAddress = data.pop("tgtTunnelAddress")
-        srcTunnelPort = data.pop("srcTunnelPort")
-        dstTunnelPort = data.pop("dstTunnelPort")
-        qCI = data.pop("qCI")
-        dSCP = data.pop("dSCP")
-        tC = data.pop("tC")
+        validate(instance=data, schema=trafficFilter_schema)
+        srcAddress = data.pop("srcAddress") if "srcAddress" in data else None
+        dstAddress = data.pop("dstAddress") if "dstAddress" in data else None
+        srcPort = data.pop("srcPort") if "srcPort" in data else None
+        dstPort = data.pop("dstPort") if "dstPort" in data else None
+        protocol = data.pop("protocol") if "protocol" in data else None
+        token = data.pop("token") if "token" in data else None
+        srcTunnelAddress = data.pop("srcTunnelAddress") if "srcTunnelAddress" in data else None
+        tgtTunnelAddress = data.pop("tgtTunnelAddress") if "tgtTunnelAddress" in data else None
+        srcTunnelPort = data.pop("srcTunnelPort") if "srcTunnelPort" in data else None
+        dstTunnelPort = data.pop("dstTunnelPort") if "dstTunnelPort" in data else None
+        qCI = data.pop("qCI") if "qCI" in data else None
+        dSCP = data.pop("dSCP") if "dSCP" in data else None
+        tC = data.pop("tC") if "tC" in data else None
 
         return TrafficFilter(srcAddress = srcAddress, dstAddress = dstAddress, srcPort = srcPort,
                              dstPort = dstPort, protocol = protocol, token = token,
@@ -1053,11 +1166,11 @@ class TunnelInfo:
     @staticmethod
     def from_json(data: dict) -> TunnelInfo:
         # First validate the json via jsonschema
-        validate(instance=data, schema=tunnel_info_schema)
+        validate(instance=data, schema=tunnelInfo_schema)
 
         tunnelType = data.pop("tunnelType")
-        tunnelDstAddress = data.pop("tunnelDstAddress")
-        tunnelSrcAddress = data.pop("tunnelSrcAddress")
+        tunnelDstAddress = data.pop("tunnelDstAddress") if "tunnelDstAddress" in data else None
+        tunnelSrcAddress = data.pop("tunnelSrcAddress") if "tunnelSrcAddress" in data else None
 
         return TunnelInfo(tunnelType = tunnelType, tunnelDstAddress = tunnelDstAddress,
                           tunnelSrcAddress = tunnelSrcAddress)
@@ -1069,13 +1182,13 @@ class TunnelInfo:
 
 
 class DestinationInterface:
-    def __init__(self, interface_type: str,
+    def __init__(self, interfaceType: str,
                  tunnelInfo: TunnelInfo = None,
                  srcMacAddress: str = '',
                  dstMacAddress: str = '',
                  dstIpAddress: str= ''):
 
-        self.interface_type = interface_type
+        self.interfaceType = interfaceType
         self.tunnelInfo = tunnelInfo
         self.srcMacAddress = srcMacAddress
         self.dstMacAddress = dstMacAddress
@@ -1084,32 +1197,37 @@ class DestinationInterface:
     @staticmethod
     def from_json(data: dict) -> DestinationInterface:
         # First validate the json via jsonschema
-        validate(instance=data, schema=destination_interface_schema)
+        # cherrypy.log("Destination Interface from_json data:")
+        # cherrypy.log(json.dumps(data))
+        validate(instance=data, schema=destinationInterface_schema)
 
-        interface_type = data.pop("interface_type")
-        tunnelInfo = TunnelInfo(data.pop("tunnelInfo"))
-        srcMacAddress = data.pop("srcMacAddress")
-        dstMacAddress = data.pop("dstMacAddress")
-        dstIpAddress = data.pop("dstIpAddress")
+        interfaceType = data.pop("interfaceType")
+        tunnelInfo = TunnelInfo.from_json(data.pop("tunnelInfo")) if "tunnelInfo" in data else None
+        srcMacAddress = data.pop("srcMacAddress") if "srcMacAddress" in data else None
+        dstMacAddress = data.pop("dstMacAddress") if "dstMacAddress" in data else None
+        dstIpAddress = data.pop("dstIpAddress") if "dstIpAddress" in data else None
 
-        return DestinationInterface(interface_type = interface_type, tunnelInfo = tunnelInfo,
+        return DestinationInterface(interfaceType = interfaceType, tunnelInfo = tunnelInfo,
                                     srcMacAddress = srcMacAddress, dstMacAddress = dstMacAddress,
                                     dstIpAddress = dstIpAddress)
 
     def to_json(self):
-        return ignore_none_value(dict(interface_type = self.interface_type,
+        return ignore_none_value(dict(interfaceType = self.interfaceType,
                                       tunnelInfo = self.tunnelInfo, srcMacAddress = self.srcMacAddress,
                                       dstMacAddress = self.dstMacAddress, dstIpAddress = self.dstIpAddress) )
 
 
 
-class TrafficRules:
-    def __init__(self, trafficRuleId: str, filterType: str,
+class TrafficRule:
+    def __init__(self, 
+                 trafficRuleId: str, 
+                 filterType: str,
                  priority: int,
                  trafficFilter: List[TrafficFilter] = None,
                  action: str = '',
                  dstInterface: List[DestinationInterface] = None,
-                 state: str = ''):
+                 state: str = ''
+                ):
 
         self.trafficRuleId = trafficRuleId
         self.filterType = filterType
@@ -1121,31 +1239,26 @@ class TrafficRules:
 
 
     @staticmethod
-    def from_json(data: dict) -> TrafficRules:
-        # First validate the json via jsonschema
-
-        cherrypy.log("validade tunnelInfo")
-        validate(instance = data["dstInterface"][0]["tunnelInfo"], schema = tunnel_info_schema)
-
-        cherrypy.log("validate trafficFilter")
-        validate(instance = data["trafficFilter"][0], schema = traffic_filter_schema)
-
-        cherrypy.log("validate dstInterface")
-        validate(instance=data["dstInterface"][0], schema=destination_interface_schema)
-
-        cherrypy.log("validate traffic rule")
-        validate(instance=data, schema=traffic_rule_schema)
+    def from_json(data: dict) -> TrafficRule:
+        validate(instance=data, schema=trafficRule_schema)
+        # cherrypy.log("TrafficRule from_json data:")
+        # cherrypy.log(json.dumps(data))
 
         trafficRuleId = data.pop("trafficRuleId")
         filterType = data.pop("filterType")
         priority = data.pop("priority")
-        trafficFilter = TrafficFilter(data.pop("trafficFilter"))
+        trafficFilters = data.pop("trafficFilter")
+        trafficFilter = []
+        for filter in trafficFilters:
+            trafficFilter.append(TrafficFilter.from_json(filter))
         action = data.pop("action")
-        dstInterface = DestinationInterface(data.pop("dstInterface"))
+        dstInterfaces = data.pop("dstInterface")
+        dstInterface = []
+        for interface in dstInterfaces:
+            dstInterface.append(DestinationInterface.from_json(interface))
         state = data.pop("state")
 
-
-        return TrafficRules(trafficRuleId = trafficRuleId, filterType = filterType,
+        return TrafficRule(trafficRuleId = trafficRuleId, filterType = filterType,
                             priority = priority, trafficFilter = trafficFilter, action = action,
                             dstInterface = dstInterface, state = state)
 
@@ -1153,4 +1266,472 @@ class TrafficRules:
         return ignore_none_value(dict(trafficRuleId = self.trafficRuleId, filterType = self.filterType,
                                       priority = self.priority, trafficFilter = self.trafficFilter,
                                       action = self.action, dstInterface = self.dstInterface, state = self.state) )
+    
+    def toNetworkPolicy(self):
+        networkpolicy = dict(ingress=[self.getIngress()], egress=[self.getEgress()])
+        # cherrypy.log(json.dumps(networkpolicy))
+        return networkpolicy
+        
+    
+    def getIngress(self):
+        addresses = []
+        for filter in self.trafficFilter:
+            addresses.append(dict(srcAddress=filter.srcAddress, srcPort=filter.srcPort))
+            
+        _from = []
+        _ports = []
+        for address in addresses:
+            for ip in address["srcAddress"]:
+                _from.append({"ipBlock": {"cidr": ip}})
+            for port in address["srcPort"]:
+                _ports.append({"port": int(port)})
+        
+        return {"from":_from, "ports":_ports}
 
+
+    def getEgress(self):
+        addresses = []
+        for filter in self.trafficFilter:
+            addresses.append(dict(dstAddress=filter.dstAddress, dstPort=filter.dstPort))
+        _to = []
+        _ports = []
+        for address in addresses:
+            for ip in address["dstAddress"]:
+                _to.append({"ipBlock": {"cidr": ip}})
+            for port in address["dstPort"]:
+                _ports.append({"port": int(port)})
+
+        return {"to":_to, "ports":_ports}
+
+
+class CurrentTime:
+    def __init__(self, timeInfo: int, traceability: TimeSourceStatus = TimeSourceStatus.UNTRACEABLE):
+        self.seconds = timeInfo
+        self.nanoseconds = timeInfo
+        self.timeSourceStatus = traceability
+    
+    def to_json(self):
+        return ignore_none_value(dict(seconds = self.seconds, nanoseconds = self.nanoseconds, timeSourceStatus = self.timeSourceStatus) )
+
+class TimingCaps:
+    def __init__(self, 
+    timeStamp: CurrentTime = None, 
+    ntpServers: List[ntpServer] = None, 
+    ptpMasters: List[ptpMaster] = None
+    ):
+
+        self.timeStamp = timeStamp
+        self.ntpServers = ntpServers
+        self.ptpMasters = ptpMasters
+    
+    def to_json(self):
+        return ignore_none_value(dict(timeStamp = self.timeStamp, ntpServers = self.ntpServers, ptpMasters = self.ptpMasters) )
+
+class ntpServer:
+    def __init__(self, ntpServerAddrType: NtpServerAddrType, ntpServerAddr: string, minPollingInterval: int, 
+    maxPollingInterval: int, localPriority: int, authenticationOption: AuthenticationOption, authenticationKeyNum: int):
+
+     self.ntpServerAddrType = ntpServerAddrType
+     self.ntpServerAddr = ntpServerAddr
+     self.minPollingInterval = minPollingInterval
+     self.maxPollingInterval = maxPollingInterval
+     self.localPriority = localPriority
+     self.authenticationOption = authenticationOption
+     self.authenticationKeyNum = authenticationKeyNum
+
+class ptpMaster:
+    def __init__(self, ptpMasterIpAddress: string, ptpMasterLocalPriority: int, delayReqMaxRate: int):
+        self.ptpMasterIpAddress = ptpMasterIpAddress
+        self.ptpMasterLocalPriority = ptpMasterLocalPriority
+        self.delayReqMaxRate = delayReqMaxRate
+    
+    def to_json(self):
+        return ignore_none_value(dict(ptpMasterIpAddress = self.ptpMasterIpAddress, ptpMasterLocalPriority = self.ptpMasterLocalPriority, 
+        delayReqMaxRate = self.delayReqMaxRate) )
+
+class TimeStamp:
+    def __init__(self, seconds: int, nanoseconds: int):
+        self.seconds = seconds
+        self.nanoseconds = nanoseconds
+    def to_json(self):
+        return ignore_none_value(dict(seconds = self.seconds, nanoseconds = self.nanoseconds))
+
+class ServiceLivenessInfo:
+    def __init__(self, state: ServiceState, timeStamp: TimeStamp, interval: int):
+        self.state = state
+        self.timeStamp = timeStamp
+        self.interval = interval
+    
+    @staticmethod
+    def from_json(data: dict) -> ServiceLivenessInfo:
+        # First validate the json via jsonschema
+
+        # cherrypy.log("validade timestamp")
+        validate(instance = data["timeStamp"][0], schema = timeStamp_schema)
+
+        # cherrypy.log("validate service liveness info")
+        validate(instance=data, schema=serviceLivenessInfo_schema)
+
+        state = data.pop("state")
+        timeStamp = data.pop("timeStamp")
+        interval = data.pop("interval")
+
+        return ServiceLivenessInfo(state, timeStamp, interval)
+
+
+    def to_json(self):
+        return ignore_none_value(dict(state = self.state, timeStamp = self.timeStamp, interval = self.interval))
+
+class ServiceLivenessUpdate:
+    def __init__(self, state: ServiceState):
+        self.state = state
+    
+    @staticmethod
+    def from_json(data: dict) -> ServiceLivenessInfo:
+        # First validate the json via jsonschema
+        # cherrypy.log("validate service liveness update")
+        validate(instance=data, schema=serviceLivenessUpdate_schema)
+        state = data.pop("state")
+
+        return ServiceLivenessUpdate(state)
+
+
+    def to_json(self):
+        return ignore_none_value(dict(state = self.state))
+
+
+
+################################ MM5 data types #######################################
+# MEC 010v2 6.2.2.21
+
+class ServiceDependency:
+    def __init__(self) -> None:
+        pass
+
+class ServiceDescriptor:
+    def __init__(self) -> None:
+        pass
+
+class FeatureDependency:
+    def __init__(self) -> None:
+        pass
+
+class TransportDependency:
+    def __init__(self) -> None:
+        pass
+
+class TrafficRuleDescriptor:
+    def __init__(self, trafficRule: TrafficRule):
+        self.trafficRule = trafficRule
+    
+    def from_json(data: dict):
+        data = data | {"state": "ACTIVE"}
+        trafficRuleDescriptor = TrafficRule.from_json(data)
+        return TrafficRuleDescriptor(trafficRuleDescriptor)
+
+    def to_json(self):
+        trafficRuleDescriptor = self.trafficRule.to_json()
+        trafficRuleDescriptor.pop("state")
+        return trafficRuleDescriptor
+class DNSRuleDescriptor:
+    def __init__(self, dnsRule: DnsRule):
+        self.dnsRule = dnsRule
+    
+    def from_json(data: dict):
+        data = data | {"state": "ACTIVE"}
+        dnsRule = DnsRule.from_json(data)
+        return DNSRuleDescriptor(dnsRule)
+
+    def to_json(self):
+        dnsDescriptor = self.dnsRule.to_json()
+        dnsDescriptor.pop("state")
+        return dnsDescriptor
+
+class LatencyDescriptor:
+    def __init__(self) -> None:
+        pass
+    def from_json():
+        pass
+
+class UserContextTransferCapility:
+    def __init__(self) -> None:
+        pass
+    def from_json():
+        pass
+
+class AppNetworkPolicy:
+    def __init__(self) -> None:
+        pass
+    def from_json():
+        pass
+
+class ConfigPlatformForAppRequest:
+    def __init__(self, 
+    appServiceRequired: List(ServiceDependency) = None,
+    appServiceOptional: List(ServiceDependency) = None,
+    appServiceProduced: List(ServiceDescriptor) = None,
+    appFeatureRequired: List(FeatureDependency) = None,
+    appFeatureOptional: List(FeatureDependency) = None,
+    transportDependencies: List(TransportDependency) = None,
+    appTrafficRule: List(TrafficRuleDescriptor) = None,
+    appDNSRule: List(DNSRuleDescriptor) = None,
+    appLatency: LatencyDescriptor = None,
+    userContextTransferCapability: UserContextTransferCapility = None,
+    appNetworkPolicy: AppNetworkPolicy = None
+    ):
+        self.appServiceRequired = appServiceRequired
+        self.appServiceOptional = appServiceOptional
+        self.appServiceProduced = appServiceProduced
+        self.appFeatureRequired = appFeatureRequired
+        self.appFeatureOptional = appFeatureOptional
+        self.transportDependencies = transportDependencies
+        self.appTrafficRule = appTrafficRule
+        self.appDNSRule = appDNSRule
+        self.appLatency = appLatency
+        self.userContextTransferCapability = userContextTransferCapability
+        self.appNetworkPolicy = appNetworkPolicy
+
+    def from_json(data: dict) -> ConfigPlatformForAppRequest:
+        try:
+            appServiceRequired = []
+            for svc in data["appServiceRequired"]:
+                appServiceRequired.append(ServiceDependency.from_json(svc))
+        except KeyError:
+            appServiceRequired = None
+            
+        try:
+            appServiceOptional = []
+            for svc in data["appServiceOptional"]:
+                appServiceOptional.append(ServiceDependency.from_json(svc))
+        except KeyError:
+            appServiceOptional = None
+        
+        try:
+            appServiceProduced = []
+            for svc in data["appServiceProduced"]:
+                appServiceProduced.append(ServiceDescriptor.from_json(svc))
+        except KeyError:
+            appServiceProduced = None
+
+        try:
+            appFeatureRequired = []
+            for ft in data["appFeatureRequired"]:
+                appFeatureRequired.append(FeatureDependency.from_json(ft))
+        except KeyError:
+            appFeatureRequired = None
+
+        try:
+            appFeatureOptional = []
+            for ft in data["appFeatureOptional"]:
+                appFeatureOptional.append(FeatureDependency.from_json(ft))
+        except KeyError:
+            appFeatureOptional = None
+
+        try:
+            transportDependencies = []
+            for td in data["transportDependencies"]:
+                transportDependencies.append(TransportDependency.from_json(td))
+        except KeyError:
+            transportDependencies = None
+
+        try:
+            appTrafficRule = []
+            for tr in data["appTrafficRule"]:
+                appTrafficRule.append(TrafficRuleDescriptor.from_json(tr))
+        except KeyError:
+            appTrafficRule = None
+
+        try:
+            appDNSRule = []
+            for dr in data["appDNSRule"]:
+                appDNSRule.append(DNSRuleDescriptor.from_json(dr))
+        except KeyError:
+            appDNSRule = None
+
+        try:
+            appLatency = LatencyDescriptor.from_json(data["appLatency"])
+        except KeyError:
+            appLatency = None
+
+        try:
+            userContextTransferCapability = UserContextTransferCapility.from_json(data["userContextTransferCapability"])
+        except KeyError:
+            userContextTransferCapability = None
+        
+        try:
+            appNetworkPolicy = AppNetworkPolicy.from_json(data["appNetworkPolicy"])
+        except KeyError:
+            appNetworkPolicy = None
+
+        return ConfigPlatformForAppRequest(
+            appServiceRequired=appServiceRequired,
+            appServiceOptional=appServiceOptional,
+            appServiceProduced=appServiceProduced,
+            appFeatureRequired=appFeatureRequired,
+            appFeatureOptional=appFeatureOptional,
+            transportDependencies=transportDependencies,
+            appTrafficRule=appTrafficRule,
+            appDNSRule=appDNSRule,
+            appLatency=appLatency,
+            userContextTransferCapability=userContextTransferCapability,
+            appNetworkPolicy=appNetworkPolicy
+        )
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                appServiceRequired=self.appServiceRequired,
+                appServiceOptional=self.appServiceOptional,
+                appServiceProduced=self.appServiceProduced,
+                appFeatureRequired=self.appFeatureRequired,
+                appFeatureOptional=self.appFeatureOptional,
+                transportDependencies=self.transportDependencies,
+                appTrafficRule=self.appTrafficRule,
+                appDNSRule=self.appDNSRule,
+                appLatency=self.appLatency,
+                userContextTransferCapability=self.userContextTransferCapability,
+                appNetworkPolicy=self.appNetworkPolicy
+            )
+        )
+
+class ChangeAppInstanceState:
+    def __init__(self, appInstanceId: str, changeStateTo: ChangeStateTo, stopType: StopType = None, gracefulStopTimeout: int = None) -> None:
+        self.appInstanceId = appInstanceId
+        self.changeStateTo = changeStateTo
+        self.stopType = stopType
+        self.gracefulStopTimeout = gracefulStopTimeout
+    
+    def from_json(data: dict):
+        validate(data, schema=changeAppInstanceState_schema)
+        appInstanceId = data.pop("appInstanceId")
+        changeStateTo = ChangeStateTo(data.pop("changeStateTo"))
+        stopType = StopType(data.pop("stopType"))
+        gracefulStopTimeout = int(data.pop("gracefulStopTimeout"))
+
+        return ChangeAppInstanceState(
+            appInstanceId=appInstanceId,
+            changeStateTo=changeStateTo,
+            stopType=stopType,
+            gracefulStopTimeout=gracefulStopTimeout
+        )
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                appInstanceId=self.appInstanceId,
+                changeStateTo=self.changeStateTo,
+                stopType=self.stopType,
+                gracefulStopTimeout=self.gracefulStopTimeout
+            )
+        )
+
+class TerminateAppInstance:
+    def __init__(self, appInstanceId: str, terminationType: TerminationType, gracefulStopTimeout: int) -> None:
+        self.appInstanceId = appInstanceId
+        self.terminationType = terminationType
+        self.gracefulStopTimeout = gracefulStopTimeout
+    
+    def from_json(data: dict):
+        validate(data, schema=terminateAppInstance_schema)
+        appInstanceId = data.pop("appInstanceId")
+        terminationType = TerminationType(data.pop("terminationType"))
+        try:
+            gracefulStopTimeout = int(data.pop("gracefulStopTimeout"))
+        except KeyError:
+            gracefulStopTimeout = 0
+
+        return TerminateAppInstance(
+            appInstanceId=appInstanceId,
+            terminationType=terminationType,
+            gracefulStopTimeout=gracefulStopTimeout
+        )
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                appInstanceId=self.appInstanceId,
+                terminationType=self.terminationType,
+                gracefulStopTimeout=self.gracefulStopTimeout
+            )
+        )
+
+
+
+class AppInstanceState:
+    def __init__(self, instantiationState: InstantiationState, operationalState: OperationalState = None):
+        self.instantiationState = instantiationState
+        self.operationalState = operationalState
+    
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                instantiationState=self.instantiationState,
+                operationalState=self.operationalState
+            )
+        )
+    
+
+############################ EXTRA SERVICES (DNS AND OAUTH) ###########################################
+
+class OAuthServer:
+    def __init__(self, url: str, port: str) -> None:
+        self.url = url
+        self.port = port
+    
+    def register(self):
+        response = requests.get("http://%s:%s/register" %(self.url, self.port))
+        response = json.loads(response.content)
+        if (response['message'] == 'Client registered successfully'):
+            response.pop('message')
+            return response
+        
+        return False
+        
+    
+    def get_token(self, client_id:str, client_secret:str):
+        credentials = dict(grant_type="client_credentials", client_id=client_id, client_secret=client_secret)
+        response = requests.post("http://%s:%s/token" %(self.url, self.port), json=credentials)
+        if response.status_code == 200:
+            token = json.loads(response.content)['access_token']
+            return token
+        
+        return False
+    
+    def validate_token(self, access_token:str):
+        data = dict(access_token=access_token)
+        response = requests.post("http://%s:%s/validate_token" %(self.url, self.port), json=data)
+        return response.status_code == 200
+    
+    def delete_client(self, client_id:str, client_secret:str):
+        credentials = dict(client_id=client_id, client_secret=client_secret)
+        response = requests.post("http://%s:%s/delete" %(self.url, self.port), json=credentials)        
+        return response.status_code == 200
+
+class DnsApiServer:
+    def __init__(self, url: str, port: str, zone: str = "zone0") -> None:
+        self.url = url
+        self.port = port
+        self.zone = zone
+
+    def create_record(self, domain: str, ip: str, ttl: int):
+
+        headers = {"Content-Type": "application/json"}
+        query = {"name": domain, "ip": ip, "ttl": ttl}
+
+        url_0 = 'http://%s:%s/dns_support/v1/api/%s/record' % (self.url, self.port, self.zone)
+
+        response = requests.post(url_0, headers=headers, params=query)
+
+        # print(f"\n# DNS rule creation #\nresponse: {response.json()}\n")
+
+        return response.status_code == 200
+
+    def remove_record(self, domain: str):
+        
+        headers = {"Content-Type": "application/json"}
+        
+        url = 'http://%s:%s/dns_support/v1/api/%s/record?name=%s' %(self.url, self.port, self.zone, domain)
+        
+        response = requests.delete(url, headers=headers)
+
+        return response.status_code == 200

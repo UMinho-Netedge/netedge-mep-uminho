@@ -1,4 +1,4 @@
-# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
+# Copyright 2022 Centro ALGORITMI - University of Minho
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,20 +12,11 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-from urllib import response
-#from mp1.models import ProblemDetails
-import ast
-import json
-
-class InvalidQuery(Exception):
-    def __init__(self, error=437, message="Erro de exclusao mutua"):
-        self.error = error
-        self.message = message
-        super().__init__(self.error, self.message)
-    pass
-
-
-
-
-class InvalidGrantType(Exception):
-    pass
+name: mep
+description: A Helm Chart for ETSI MEC Platform developed by ALGORITMI Centre - UMinho
+version: 0.0.1
+apiVersion: v1
+keywords:
+  - mep
+sources:
+home:

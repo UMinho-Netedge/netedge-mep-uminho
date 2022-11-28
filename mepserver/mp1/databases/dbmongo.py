@@ -1,3 +1,17 @@
+# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+#     Unless required by applicable law or agreed to in writing, software
+#     distributed under the License is distributed on an "AS IS" BASIS,
+#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#     See the License for the specific language governing permissions and
+#     limitations under the License.
+
 from .database_base import DatabaseBase
 from ..utils import mongodb_query_replace, NestedEncoder
 from pymongo import MongoClient
@@ -7,15 +21,22 @@ import json
 
 
 class MongoDb(DatabaseBase):
-    def __init__(self, ip, port, database):
+    def __init__(self, ip, port, username, password, database):
         self.ip = ip
-        self.port = port
+        self.port = int(port)
+        self.username = username
+        self.password = password
         self.database = database
         self.client = None
 
     def connect(self, thread_index):
         # Create database connection
-        self.client = MongoClient('mongodb://mongodb:27017')[self.database]
+        # cherrypy.log(
+        # '''Connection variables are:\n
+        # host=%s\tport=%s\tusername=%s\tpassword=%s\tdatabase=%s'''
+        # % (self.ip, self.port, self.username, self.password, self.database)
+        # )
+        self.client = MongoClient(host=self.ip, port=self.port, username=self.username, password=self.password)[self.database]
         # Add database to each thread (https://github.com/cherrypy/tools/blob/master/Databases)
         cherrypy.thread_data.db = self
 
@@ -46,6 +67,18 @@ class MongoDb(DatabaseBase):
         # Get the collection
         collection = self.client[col]
         data_to_be_removed = collection.delete_one(query)
+        return data_to_be_removed
+
+    def remove_many(self, col: str, query: dict):
+        """
+        Remove multiple documents from the database
+        :param col: collection
+        :param query: query to match one or more parameters of the data to be removed
+        :return: documents removed from database
+        """
+        # Get the collection
+        collection = self.client[col]
+        data_to_be_removed = collection.delete_many(query)
         return data_to_be_removed
 
     def update(self, col: str, query: dict, newdata: dict):

@@ -1,4 +1,4 @@
-# Copyright 2022 Instituto de Telecomunicações - Aveiro
+# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,15 +21,21 @@ from mp1.models import *
 
 class TransportsController:
     @json_out(cls=NestedEncoder)
-    def transports_get(self):
+    def transports_get(self, **kwargs,):
         """
         This method retrieves information about a list of available transports. This method is typically used by a service-producing application to discover transports provided by the MEC platform in the "transport information query" procedure
 
         :return: TransportInfo or ProblemDetails
         HTTP STATUS CODE: 200, 400, 403, 404
         """
+                #  If kwargs isn't None the get request was made with invalid atributes
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+        
         data = json.loads(
-            '{"id":"string","name":"string","endpoint":{"uris":["http://www.google.com","http://www.google.com"]},"description":"string","type":"REST_HTTP","protocol":"string","version":"string","security":{"oAuth2Info":{"grantTypes":["OAUTH2_AUTHORIZATION_CODE"],"tokenEndpoint":"string"}},"implSpecificInfo":{}}'
+            '{"id":"string","name":"string","description":"string","type":"REST_HTTP","protocol":"string","version":"string","security":{"oAuth2Info":{"grantTypes":["OAUTH2_AUTHORIZATION_CODE"],"tokenEndpoint":"string"}},"implSpecificInfo":{}}'
         )
-        transportInfo = TransportInfo.from_json(data)
-        return transportInfo
+        # transportInfo = TransportInfo.from_json(data)
+        return data
