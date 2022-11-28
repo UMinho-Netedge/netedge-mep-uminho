@@ -1,4 +1,4 @@
-# Copyright 2022 Instituto de Telecomunicações - Aveiro
+# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,20 @@
 #     limitations under the License.
 
 from __future__ import annotations
+from os import times
+import string
 from typing import List, Union
 from jsonschema import validate
 import cherrypy
-
+from urllib import request, parse
 from .utils import *
 from .enums import *
 from .mep_exceptions import *
 from .schemas import *
+from uuid import UUID
+import requests
+
+import pprint # Dictionaries pretty print (for testing)
 
 ####################################
 # Classes used by both support and #
@@ -29,9 +35,7 @@ from .schemas import *
 class LinkType:
     """
     This type represents a type of link and may be referenced from data structures.
-
     Raises TypeError
-
     Section 6.3.2 - MEC 011
     """
 
@@ -73,21 +77,19 @@ class ProblemDetails:
 class Subscription:
     """
     The MEC application instance's subscriptions.
-
     Section 6.2.2
     """
 
     def __init__(
-        self,
-        href: str,
-        subscriptionType: Union[str, None] = "SerAvailabilityNotificationSubscription",
+            self,
+            href: str,
+            subscriptionType: Union[str, None] = "SerAvailabilityNotificationSubscription",
     ):
         """
         :param href: URI referring to the subscription. (isn't a real URI but the path to something in our MEP)
         :type href: str
         :param subscriptionType: Type of the subscription.
         :type subscriptionType: str
-
         Raises TypeError
         """
         self.href = href
@@ -102,15 +104,14 @@ class Subscription:
 class Links:
     """
     Internal structure to be compliant with MEC 011
-
     Section 6.2.2
     """
 
     def __init__(
-        self,
-        _self: LinkType = None,
-        subscriptions: List[Subscription] = None,
-        liveness: LinkType = None,
+            self,
+            _self: LinkType = None,
+            subscriptions: List[Subscription] = None,
+            liveness: LinkType = None,
     ):
         self.self = _self
         self.subscriptions = subscriptions
@@ -122,7 +123,7 @@ class Links:
         _self = LinkType(data["self"]["href"])
         subscriptions = None
         if "subscriptions" in data and len(data["subscriptions"]) > 0:
-            cherrypy.log(json.dumps(data["subscriptions"]))
+            # cherrypy.log(json.dumps(data["subscriptions"]))
             subscriptions = [
                 Subscription(**subscription) for subscription in data["subscriptions"]
             ]
@@ -144,7 +145,6 @@ class MecServiceMgmtApiSubscriptionLinkList:
     """
     This type represents a list of links related to currently existing subscriptions for a MEC application instance.
     This information is returned when sending a request to receive current subscriptions.
-
     Section 6.2.2 - MEC 011
     """
 
@@ -166,7 +166,6 @@ class CategoryRef:
     def __init__(self, href: str, id: str, name: str, version: str):
         """
         This type represents the category reference.
-
         :param href: Reference of the catalogue.
         :type href: String
         :param id: Unique identifier of the category.
@@ -175,9 +174,7 @@ class CategoryRef:
         :type name: String
         :param version: Category version.
         :type version: String
-
         Raises TypeError
-
         Section 8.1.5.2
         """
         self.href = validate_uri(href)
@@ -192,12 +189,12 @@ class CategoryRef:
 
 class FilteringCriteria:
     def __init__(
-        self,
-        states: List[ServiceState],
-        isLocal: bool,
-        serInstanceIds: List[str] = None,
-        serNames: List[str] = None,
-        serCategories: List[CategoryRef] = None,
+            self,
+            states: List[ServiceState],
+            isLocal: bool,
+            serInstanceIds: List[str] = None,
+            serNames: List[str] = None,
+            serCategories: List[CategoryRef] = None,
     ):
         """
         :param states: States of the services about which to report events. If the event is a state change, this filter represents the state after the change
@@ -210,11 +207,9 @@ class FilteringCriteria:
         :type serNames: String
         :param serCategories: Categories of services about which to report events.
         :type serCategories: List of CategoryRef
-
         Note serCategories, serInstanceId and serNames are mutually-exclusive
         Raises KeyError when Invalid Enum is provided
         Raises InvalidIdentifier if no identifier is specified
-
         Section 8.1.3.2
         """
         self.states = states
@@ -282,13 +277,12 @@ class FilteringCriteria:
 
 class ServiceAvailabilityNotification:
     def __init__(
-        self,
-        serviceReferences: List[ServiceReferences],
-        _links: Subscription,
-        notificationType: str = "SerAvailabilityNotificationSubscription",
+            self,
+            serviceReferences: List[ServiceReferences],
+            _links: Subscription,
+            notificationType: str = "SerAvailabilityNotificationSubscription",
     ):
         """
-
         :param serviceReferences: List of links to services whose availability has changed.
         :type serviceReferences: List of ServiceReferences
         :param _links: Object containing hyperlinks related to the resource.
@@ -296,7 +290,6 @@ class ServiceAvailabilityNotification:
         :type _links: Subscription
         :param notificationType: hall be set to "SerAvailabilityNotification"
         :type notificationType: String
-
         Section 8.1.4.2
         """
         self.notificationType = notificationType
@@ -305,12 +298,12 @@ class ServiceAvailabilityNotification:
 
     class ServiceReferences:
         def __init__(
-            self,
-            link: LinkType,
-            serInstanceId: str,
-            state: ServiceState,
-            serName: str,
-            changeType: ChangeType,
+                self,
+                link: LinkType,
+                serInstanceId: str,
+                state: ServiceState,
+                serName: str,
+                changeType: ChangeType,
         ):
             self.link = link
             self.serInstanceId = serInstanceId
@@ -350,7 +343,7 @@ class ServiceAvailabilityNotification:
 
     @staticmethod
     def from_json_service_list(
-        data: list[dict], changeType: str, subscription: str = None
+            data: list[dict], changeType: str, subscription: str = None
     ):
         """
         :param data: List containing all services (in json form) that match the filtering criteria
@@ -389,22 +382,19 @@ class ServiceAvailabilityNotification:
 
 class SerAvailabilityNotificationSubscription:
     def __init__(
-        self,
-        callbackReference: str,
-        _links: Links = None,
-        filteringCriteria: FilteringCriteria = None,
+            self,
+            callbackReference: str,
+            _links: Links = None,
+            filteringCriteria: FilteringCriteria = None,
     ):
         """
-
         :param callbackReference: URI selected by the MEC application instance to receive notifications on the subscribed MEC service availability information. This shall be included in both the request and the response.".
         :type callbackReference: String
         :param _links: Object containing hyperlinks related to the resource. This shall only be included in the HTTP responses.
         :type _links: str (String is validated to be a correct URI)
         :param filteringCriteria: Filtering criteria to match services for which events are requested to be reported. If absent, matches all services. All child attributes are combined with the logical "AND" operation.
         :type filteringCriteria: FilteringCriteria
-
         Raises TypeError
-
         Section 8.1.3.2
         """
         self.callbackReference = validate_uri(callbackReference)
@@ -448,15 +438,12 @@ class OAuth2Info:
     def __init__(self, grantTypes: List[GrantTypes], tokenEndpoint: str):
         """
         This type represents security information related to a transport.
-
         :param grantTypes: List of supported OAuth 2.0 grant types
         :type grantTypes: List[GrantTypes] Min size 1 Max Size 4
         :param tokenEndpoint: The Token Endpoint
         :type tokenEndpoint: String
-
         :Note: grantTypes can be between 1 and 4
         :Note: tokenEndpoint seems required in swagger but isn't in MEC011 Specification
-
         Section 8.1.5.4
         Raises InvalidGrantType
         """
@@ -481,7 +468,6 @@ class SecurityInfo:
     def __init__(self, oAuth2Info: OAuth2Info):
         """
         :param oAuth2Info: Parameters related to use of OAuth 2.0.
-
         Section 8.1.5.4
         """
         self.oAuth2Info = oAuth2Info
@@ -505,7 +491,6 @@ class EndPointInfo:
             """
             :param uri: Entry point information of the service as string, formatted according to URI syntax
             :type uri: String
-
             Raises TypeError
             """
             self.uris = [validate_uri(uri) for uri in uris]
@@ -559,16 +544,16 @@ class EndPointInfo:
 
 class TransportInfo:
     def __init__(
-        self,
-        id: str,
-        name: str,
-        type: TransportType,
-        version: str,
-        endpoint: [EndPointInfo.Addresses, EndPointInfo.Uris, EndPointInfo.Alternative],
-        security: SecurityInfo,
-        description: str = "",
-        implSpecificInfo: str = "",
-        protocol: str = "HTTP",
+            self,
+            id: str,
+            name: str,
+            type: TransportType,
+            version: str,
+            endpoint: Union(EndPointInfo.Addresses, EndPointInfo.Uris, EndPointInfo.Alternative),
+            security: SecurityInfo,
+            description: str = "",
+            implSpecificInfo: str = "",
+            protocol: str = "HTTP",
     ):
         """
         :param id: The identifier of this transport.
@@ -589,7 +574,6 @@ class TransportInfo:
         :type protocol: String
         :param description: Human-readable description of this transport.
         :type description: String
-
         Section 8.1.2.3
         """
         self.id = id
@@ -628,18 +612,19 @@ class TransportInfo:
 class ServiceInfo:
     def __init__(
         self,
+        serName: str,
         version: str,
         state: ServiceState,
-        transportInfo: TransportInfo,
         serializer: SerializerType,
-        livenessInterval: int,
-        _links: Links = None,
-        consumedLocalOnly: bool = True,
-        isLocal: bool = True,
-        scopeOfLocality: LocalityType = LocalityType.MEC_HOST,
         serInstanceId: str = None,
-        serName: str = None,
-        serCategory: str = None,
+        serCategory: CategoryRef = None,
+        transportId: str = None,
+        transportInfo: TransportInfo = None,
+        scopeOfLocality: LocalityType = LocalityType.MEC_HOST,
+        consumedLocalOnly: bool = True,
+        isLocal: bool = True,        
+        livenessInterval: int = None,
+        _links: Links = None,
     ):
         """
         :param serInstanceId: Identifiers of service instances about which to report events
@@ -667,7 +652,6 @@ class ServiceInfo:
         :param livenessInterval: Interval (in seconds) between two consecutive "heartbeat" messages
         :type livenessInterval: Integer
         Note serCategories, serInstanceId and serNames are mutually-exclusive
-
         Section 8.1.2.2
         """
         self.serInstanceId = serInstanceId
@@ -675,13 +659,14 @@ class ServiceInfo:
         self.serCategory = serCategory
         self.version = version
         self.state = state
+        self.transportId = transportId
         self.transportInfo = transportInfo
         self.serializer = serializer
         self.scopeOfLocality = scopeOfLocality
         self.consumedLocalOnly = consumedLocalOnly
         self.isLocal = isLocal
-        self._links = _links
         self.livenessInterval = livenessInterval
+        self._links = _links
 
     @staticmethod
     def from_json(data: dict) -> ServiceInfo:
@@ -734,7 +719,6 @@ class ServiceInfo:
         Used with the $or mongodb operator which requires a list of dictionaries for each "or" operation
         Example we want to get an object that can have serName="a" or serInstanceId="b"
         {$or:[{"serName":a},{"serInstanceId":"b"}]}
-
         Due to serInstancesIds,serNames,serCategories and states being addressable by various values we transform
         them into a list so that we can use the $in operator
         """
@@ -759,6 +743,158 @@ class ServiceInfo:
                 for key, val in list(tmp_ret.items())
             ]
         }
+
+
+class ServiceGet:
+    def __init__(
+        self,
+        ser_instance_id: List[str] = None,
+        ser_name: List[str] = None,
+        ser_category_id: str = '',
+        scope_of_locality: LocalityType = LocalityType.MEC_HOST,
+        consumed_local_only: bool = None,
+        is_local: bool = None,
+    ):
+        """
+        :param ser_instance_id: A MEC application instance may use multiple ser_instance_ids as an input parameter to query the availability of a list of MEC service instances. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_instance_id: List[String]
+        :param ser_name: A MEC application instance may use multiple ser_names as an input parameter to query the availability of a list of MEC service instances. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_name: List[String]
+        :param ser_category_id: A MEC application instance may use ser_category_id as an input parameter to query the availability of a list of MEC service instances in a serCategory. Either "ser_instance_id" or "ser_name" or "ser_category_id" or none of them shall be present.
+        :type ser_category_id: String
+        :param consumed_local_only: Indicate whether the service can only be consumed by the MEC applications located in the same locality (as defined by scopeOfLocality) as this service instance.
+        :type consumed_local_only: boolean
+        :param is_local: Indicate whether the service is located in the same locality (as defined by scopeOfLocality) as the consuming MEC application.
+        :type is_local: boolean
+        :param scope_of_locality: A MEC application instance may use scope_of_locality as an input parameter to query the availability of a list of MEC service instances with a certain scope of locality.
+        :type scope_of_locality: String
+
+        :note: ser_name, ser_category_id, ser_instance_id are mutually-exclusive only one should be used or none
+
+        Raises ValidationError when invalid type is provided or mutual-exclusion failed
+        Section 8.2.3.3.1
+        """
+        self.ser_instance_id = ser_instance_id
+        self.ser_name = ser_name
+        self.ser_category_id = ser_category_id
+        self.scope_of_locality = scope_of_locality
+        self.consumed_local_only = consumed_local_only
+        self.is_local = is_local
+
+    def __str__(self):
+        return "\nser_instance_id: "+str(self.ser_instance_id)+ \
+                "\nser_name: "+str(self.ser_name)+ \
+                "\nser_category_id: "+str(self.ser_category_id)+ \
+                "\nscope_of_locality: "+str(self.scope_of_locality)+ \
+                "\nconsumed_local_only: "+str(self.consumed_local_only)+ \
+                "\nis_local: "+str(self.is_local)
+    
+    def to_json(self):
+        return ignore_none_value(
+                    dict(
+                        ser_instance_id=self.ser_instance_id,
+                        ser_name=self.ser_name,
+                        ser_category_id=self.ser_category_id,
+                        scope_of_locality=self.scope_of_locality,
+                        consumed_local_only=self.consumed_local_only,
+                        is_local=self.is_local
+                    )
+                )
+
+    def to_query(self):
+
+        #bool_converter = {"true": True, "false": False, None: None}
+        
+        def bool_conv(att_value: str):
+            if att_value == "true":
+                return True
+            if att_value == "false":
+                return False
+            return att_value
+
+        query = dict(
+            serInstanceId=self.ser_instance_id,
+            serName=self.ser_name,
+            serCategory=self.ser_category_id,
+            scopeOfLocality=self.scope_of_locality,
+            consumedLocalOnly=bool_conv(self.consumed_local_only),
+            isLocal=bool_conv(self.is_local)
+        )
+
+        query = ignore_none_value(query)
+        validate(instance=query, schema=service_get_schema)
+
+        # Search for 'id' in the nested structure serCategory
+        if self.ser_category_id is not None:
+            query['serCategory.id'] = query.pop('serCategory')
+        
+        if self.ser_instance_id is not None:
+            query['serInstanceId'] = query['serInstanceId'].split(",")
+        if self.ser_name is not None:
+            query['serName'] = query['serName'].split(",")
+
+        return query
+
+    def __str__(self):
+        return "\nser_instance_id: "+str(self.ser_instance_id)+ \
+                "\nser_name: "+str(self.ser_name)+ \
+                "\nser_category_id: "+str(self.ser_category_id)+ \
+                "\nscope_of_locality: "+str(self.scope_of_locality)+ \
+                "\nconsumed_local_only: "+str(self.consumed_local_only)+ \
+                "\nis_local: "+str(self.is_local)
+
+
+class DnsRule:
+    def __init__(
+        self,
+        dnsRuleId: str = None,
+        domainName: str = None,
+        ipAddressType: IpAddressType = None,
+        ipAddress: str = None,
+        ttl: int = None,
+        state: StateType = None,
+        ):
+
+        self.dnsRuleId = dnsRuleId
+        self.domainName = domainName
+        self.ipAddressType = ipAddressType
+        self.ipAddress = ipAddress
+        self.ttl = ttl
+        self.state = state
+
+    @staticmethod
+    def from_json(data: dict, schema=dns_rule_schema) -> DnsRule:
+        # Validate the json via json schema
+        validate(instance=data, schema=schema)
+        
+        kwargs = {}
+        for attribute in data.keys():
+            if attribute == "ipAddressType":
+                kwargs['ipAddressType'] = IpAddressType(data["ipAddressType"])
+            elif attribute == "ttl":
+                kwargs['ttl'] = int(data["ttl"])
+            elif attribute == "state":
+                kwargs['state'] = StateType(data["state"])
+            else:
+                kwargs[attribute] = data[attribute]
+        
+        return DnsRule(**kwargs)
+
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                dnsRuleId = self.dnsRuleId,
+                domainName = self.domainName,
+                ipAddressType = self.ipAddressType.name if self.ipAddressType is not None else None,
+                ipAddress = self.ipAddress,
+                ttl = self.ttl,
+                state = self.state.name if self.state is not None else None,
+                )
+            )
+    
+    def __str__(self):
+        return str(self.ipAddressType)
 
 
 ####################################
@@ -797,3 +933,805 @@ class AppTerminationConfirmation:
 
     def to_json(self):
         return ignore_none_value(dict(operationAction=self.operationAction))
+    
+    def __str__(self):
+        return str(self.operationAction)
+
+class AppTerminationNotificationSubscription:
+    def __init__(self, callbackReference: str, _links: Links, appInstanceId: str, subscriptionType: str = "AppTerminationNotificationSubscription"):
+        self.subscriptionType = subscriptionType
+        self.callbackReference = callbackReference
+        self._links = _links
+        self.appInstanceId = appInstanceId
+
+    def from_json(data: dict):
+        validate(instance=data, schema=appTerminationNotificationSubscription_schema)
+        callbackReference = data.pop("callbackReference")
+        appInstanceId = data.pop("appInstanceId")
+        subscriptionType = data.pop("subscriptionType")
+        try:
+            _links = Links.from_json(data["_links"])
+        except KeyError:
+            _links = None
+
+        return AppTerminationNotificationSubscription(
+            callbackReference=callbackReference,
+            _links=_links,
+            appInstanceId=appInstanceId,
+            subscriptionType=subscriptionType
+            )
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                    subscriptionType=self.subscriptionType,
+                    callbackReference=self.callbackReference,
+                    _links=self._links,
+                    appInstanceId=self.appInstanceId
+
+                )
+            )
+
+class AppTerminationNotification:
+    def __init__(self, operationAction: OperationActionType, maxGracefulTimeout: int, _links: LinkType, notificationType: str = "AppTerminationNotification") -> None:
+        self.notificationType = notificationType
+        self.operationAction = operationAction
+        self.maxGracefulTimeout = maxGracefulTimeout
+        self._links = _links
+    
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                notificationType=self.notificationType,
+                operationAction=self.operationAction,
+                maxGracefulTimeout=self.maxGracefulTimeout,
+                _links=self._links
+            )
+        )
+
+#################
+# ERROR CLASSES #
+#################
+
+class Error:
+    def __init__(self, type: str, title: str, status: int, detail: str, instance: str):
+        self.type = type
+        self.title = title
+        self.status = status
+        self.detail = detail
+        self.instance = instance
+
+    def message(self):
+        cherrypy.response.status = self.status
+
+        return ProblemDetails(
+            type=self.type,
+            title=self.title,
+            status=self.status,
+            detail=self.detail,
+            instance=self.instance
+        )
+
+
+class BadRequest(Error):
+    def __init__(self, e: Exception):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="Incorrect parameters were passed to the request",
+            status=400,
+            detail=str(e).split('\n')[0],
+            instance=cherrypy.request.path_info
+        )
+
+
+class Forbidden(Error):
+    def __init__(self, detail : str = "This operation not allowed"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="The operation is not allowed given the current status of the resource",
+            status=403,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class NotFound(Error):
+    def __init__(self, detail: str = "This resource was not found"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="The URI cannot be mapped to a valid resource URI.",
+            status=404,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+
+class Conflict(Error):
+    def __init__(self, detail: str = "This operation not allowed"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="The operation is not allowed due to a conflict with the state of the resource",
+            status=409,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class Precondition(Error):
+    def __init__(self, detail: str = "Precondition Failed"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="The operation is not allowed due to a conflict with the state of the resource",
+            status=412,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class URITooLong(Error):
+    def __init__(self, detail : str = "The request URI is longer than the server is able to process"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="URI is too long",
+            status=414,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+class TooManyRequests(Error):
+    def __init__(self, detail : str = "Exceeded number of requests, the rate limiter has been triggered"):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="Too many requests",
+            status=429,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
+
+
+class TrafficFilter:
+    def __init__(self, srcAddress: List[str] = None,
+                 dstAddress: List[str] = None,
+                 srcPort: List[str] = None,
+                 dstPort: List[str] = None,
+                 protocol: List[str] = None,
+                 token: List[str] = None,
+                 srcTunnelAddress: List[str] = None,
+                 tgtTunnelAddress: List[str] = None,
+                 srcTunnelPort: List[str] = None,
+                 dstTunnelPort: List[str] = None,
+                 qCI: int = 0,
+                 dSCP: int = 0,
+                 tC: int = 0):
+
+        self.srcAddress = srcAddress
+        self.dstAddress = dstAddress
+        self.srcPort = srcPort
+        self.dstPort = dstPort
+        self.protocol = protocol
+        self.token = token
+        self.srcTunnelAddress = srcTunnelAddress
+        self.tgtTunnelAddress = tgtTunnelAddress
+        self.srcTunnelPort = srcTunnelPort
+        self.dstTunnelPort = dstTunnelPort
+        self.qCI = qCI
+        self.dSCP = dSCP
+        self.tC = tC
+
+    @staticmethod
+    def from_json(data: dict) -> TrafficFilter:
+        # cherrypy.log("TrafficFilter from_json data:")
+        # cherrypy.log(json.dumps(data))
+        # First validate the json via jsonschema
+        validate(instance=data, schema=trafficFilter_schema)
+        srcAddress = data.pop("srcAddress") if "srcAddress" in data else None
+        dstAddress = data.pop("dstAddress") if "dstAddress" in data else None
+        srcPort = data.pop("srcPort") if "srcPort" in data else None
+        dstPort = data.pop("dstPort") if "dstPort" in data else None
+        protocol = data.pop("protocol") if "protocol" in data else None
+        token = data.pop("token") if "token" in data else None
+        srcTunnelAddress = data.pop("srcTunnelAddress") if "srcTunnelAddress" in data else None
+        tgtTunnelAddress = data.pop("tgtTunnelAddress") if "tgtTunnelAddress" in data else None
+        srcTunnelPort = data.pop("srcTunnelPort") if "srcTunnelPort" in data else None
+        dstTunnelPort = data.pop("dstTunnelPort") if "dstTunnelPort" in data else None
+        qCI = data.pop("qCI") if "qCI" in data else None
+        dSCP = data.pop("dSCP") if "dSCP" in data else None
+        tC = data.pop("tC") if "tC" in data else None
+
+        return TrafficFilter(srcAddress = srcAddress, dstAddress = dstAddress, srcPort = srcPort,
+                             dstPort = dstPort, protocol = protocol, token = token,
+                             srcTunnelAddress = srcTunnelAddress, tgtTunnelAddress = tgtTunnelAddress,
+                             srcTunnelPort = srcTunnelPort, dstTunnelPort = dstTunnelPort, qCI = qCI,
+                             dSCP = dSCP, tC = tC)
+
+    def to_json(self):
+        return ignore_none_value(dict(srcAddress = self.srcAddress, dstAddress = self.dstAddress, srcPort = self.srcPort,
+                                      dstPort = self.dstPort, protocol = self.protocol, token = self.token,
+                                      srcTunnelAddress = self.srcTunnelAddress, tgtTunnelAddress = self.tgtTunnelAddress,
+                                      srcTunnelPort = self.srcTunnelPort, dstTunnelPort = self.dstTunnelPort,
+                                      qCI = self.qCI, dSCP = self.dSCP, tC = self.tC))
+
+class TunnelInfo:
+
+    def __init__(self, tunnelType: str, tunnelDstAddress: str,
+                 tunnelSrcAddress: str):
+
+        self.tunnelType = tunnelType
+        self.tunnelDstAddress = tunnelDstAddress
+        self.tunnelSrcAddress = tunnelSrcAddress
+
+    @staticmethod
+    def from_json(data: dict) -> TunnelInfo:
+        # First validate the json via jsonschema
+        validate(instance=data, schema=tunnelInfo_schema)
+
+        tunnelType = data.pop("tunnelType")
+        tunnelDstAddress = data.pop("tunnelDstAddress") if "tunnelDstAddress" in data else None
+        tunnelSrcAddress = data.pop("tunnelSrcAddress") if "tunnelSrcAddress" in data else None
+
+        return TunnelInfo(tunnelType = tunnelType, tunnelDstAddress = tunnelDstAddress,
+                          tunnelSrcAddress = tunnelSrcAddress)
+
+    def to_json(self):
+        return ignore_none_value(dict(tunnelType = self.tunnelType,
+                                      tunnelDstAddress = self.tunnelDstAddress,
+                                      tunnelSrcAddress = self.tunnelSrcAddress) )
+
+
+class DestinationInterface:
+    def __init__(self, interfaceType: str,
+                 tunnelInfo: TunnelInfo = None,
+                 srcMacAddress: str = '',
+                 dstMacAddress: str = '',
+                 dstIpAddress: str= ''):
+
+        self.interfaceType = interfaceType
+        self.tunnelInfo = tunnelInfo
+        self.srcMacAddress = srcMacAddress
+        self.dstMacAddress = dstMacAddress
+        self.dstIpAddress = dstIpAddress
+
+    @staticmethod
+    def from_json(data: dict) -> DestinationInterface:
+        # First validate the json via jsonschema
+        # cherrypy.log("Destination Interface from_json data:")
+        # cherrypy.log(json.dumps(data))
+        validate(instance=data, schema=destinationInterface_schema)
+
+        interfaceType = data.pop("interfaceType")
+        tunnelInfo = TunnelInfo.from_json(data.pop("tunnelInfo")) if "tunnelInfo" in data else None
+        srcMacAddress = data.pop("srcMacAddress") if "srcMacAddress" in data else None
+        dstMacAddress = data.pop("dstMacAddress") if "dstMacAddress" in data else None
+        dstIpAddress = data.pop("dstIpAddress") if "dstIpAddress" in data else None
+
+        return DestinationInterface(interfaceType = interfaceType, tunnelInfo = tunnelInfo,
+                                    srcMacAddress = srcMacAddress, dstMacAddress = dstMacAddress,
+                                    dstIpAddress = dstIpAddress)
+
+    def to_json(self):
+        return ignore_none_value(dict(interfaceType = self.interfaceType,
+                                      tunnelInfo = self.tunnelInfo, srcMacAddress = self.srcMacAddress,
+                                      dstMacAddress = self.dstMacAddress, dstIpAddress = self.dstIpAddress) )
+
+
+
+class TrafficRule:
+    def __init__(self, 
+                 trafficRuleId: str, 
+                 filterType: str,
+                 priority: int,
+                 trafficFilter: List[TrafficFilter] = None,
+                 action: str = '',
+                 dstInterface: List[DestinationInterface] = None,
+                 state: str = ''
+                ):
+
+        self.trafficRuleId = trafficRuleId
+        self.filterType = filterType
+        self.priority = priority
+        self.trafficFilter = trafficFilter
+        self.action = action
+        self.dstInterface = dstInterface
+        self.state = state
+
+
+    @staticmethod
+    def from_json(data: dict) -> TrafficRule:
+        validate(instance=data, schema=trafficRule_schema)
+        # cherrypy.log("TrafficRule from_json data:")
+        # cherrypy.log(json.dumps(data))
+
+        trafficRuleId = data.pop("trafficRuleId")
+        filterType = data.pop("filterType")
+        priority = data.pop("priority")
+        trafficFilters = data.pop("trafficFilter")
+        trafficFilter = []
+        for filter in trafficFilters:
+            trafficFilter.append(TrafficFilter.from_json(filter))
+        action = data.pop("action")
+        dstInterfaces = data.pop("dstInterface")
+        dstInterface = []
+        for interface in dstInterfaces:
+            dstInterface.append(DestinationInterface.from_json(interface))
+        state = data.pop("state")
+
+        return TrafficRule(trafficRuleId = trafficRuleId, filterType = filterType,
+                            priority = priority, trafficFilter = trafficFilter, action = action,
+                            dstInterface = dstInterface, state = state)
+
+    def to_json(self):
+        return ignore_none_value(dict(trafficRuleId = self.trafficRuleId, filterType = self.filterType,
+                                      priority = self.priority, trafficFilter = self.trafficFilter,
+                                      action = self.action, dstInterface = self.dstInterface, state = self.state) )
+    
+    def toNetworkPolicy(self):
+        networkpolicy = dict(ingress=[self.getIngress()], egress=[self.getEgress()])
+        # cherrypy.log(json.dumps(networkpolicy))
+        return networkpolicy
+        
+    
+    def getIngress(self):
+        addresses = []
+        for filter in self.trafficFilter:
+            addresses.append(dict(srcAddress=filter.srcAddress, srcPort=filter.srcPort))
+            
+        _from = []
+        _ports = []
+        for address in addresses:
+            for ip in address["srcAddress"]:
+                _from.append({"ipBlock": {"cidr": ip}})
+            for port in address["srcPort"]:
+                _ports.append({"port": int(port)})
+        
+        return {"from":_from, "ports":_ports}
+
+
+    def getEgress(self):
+        addresses = []
+        for filter in self.trafficFilter:
+            addresses.append(dict(dstAddress=filter.dstAddress, dstPort=filter.dstPort))
+        _to = []
+        _ports = []
+        for address in addresses:
+            for ip in address["dstAddress"]:
+                _to.append({"ipBlock": {"cidr": ip}})
+            for port in address["dstPort"]:
+                _ports.append({"port": int(port)})
+
+        return {"to":_to, "ports":_ports}
+
+
+class CurrentTime:
+    def __init__(self, timeInfo: int, traceability: TimeSourceStatus = TimeSourceStatus.UNTRACEABLE):
+        self.seconds = timeInfo
+        self.nanoseconds = timeInfo
+        self.timeSourceStatus = traceability
+    
+    def to_json(self):
+        return ignore_none_value(dict(seconds = self.seconds, nanoseconds = self.nanoseconds, timeSourceStatus = self.timeSourceStatus) )
+
+class TimingCaps:
+    def __init__(self, 
+    timeStamp: CurrentTime = None, 
+    ntpServers: List[ntpServer] = None, 
+    ptpMasters: List[ptpMaster] = None
+    ):
+
+        self.timeStamp = timeStamp
+        self.ntpServers = ntpServers
+        self.ptpMasters = ptpMasters
+    
+    def to_json(self):
+        return ignore_none_value(dict(timeStamp = self.timeStamp, ntpServers = self.ntpServers, ptpMasters = self.ptpMasters) )
+
+class ntpServer:
+    def __init__(self, ntpServerAddrType: NtpServerAddrType, ntpServerAddr: string, minPollingInterval: int, 
+    maxPollingInterval: int, localPriority: int, authenticationOption: AuthenticationOption, authenticationKeyNum: int):
+
+     self.ntpServerAddrType = ntpServerAddrType
+     self.ntpServerAddr = ntpServerAddr
+     self.minPollingInterval = minPollingInterval
+     self.maxPollingInterval = maxPollingInterval
+     self.localPriority = localPriority
+     self.authenticationOption = authenticationOption
+     self.authenticationKeyNum = authenticationKeyNum
+
+class ptpMaster:
+    def __init__(self, ptpMasterIpAddress: string, ptpMasterLocalPriority: int, delayReqMaxRate: int):
+        self.ptpMasterIpAddress = ptpMasterIpAddress
+        self.ptpMasterLocalPriority = ptpMasterLocalPriority
+        self.delayReqMaxRate = delayReqMaxRate
+    
+    def to_json(self):
+        return ignore_none_value(dict(ptpMasterIpAddress = self.ptpMasterIpAddress, ptpMasterLocalPriority = self.ptpMasterLocalPriority, 
+        delayReqMaxRate = self.delayReqMaxRate) )
+
+class TimeStamp:
+    def __init__(self, seconds: int, nanoseconds: int):
+        self.seconds = seconds
+        self.nanoseconds = nanoseconds
+    def to_json(self):
+        return ignore_none_value(dict(seconds = self.seconds, nanoseconds = self.nanoseconds))
+
+class ServiceLivenessInfo:
+    def __init__(self, state: ServiceState, timeStamp: TimeStamp, interval: int):
+        self.state = state
+        self.timeStamp = timeStamp
+        self.interval = interval
+    
+    @staticmethod
+    def from_json(data: dict) -> ServiceLivenessInfo:
+        # First validate the json via jsonschema
+
+        # cherrypy.log("validade timestamp")
+        validate(instance = data["timeStamp"][0], schema = timeStamp_schema)
+
+        # cherrypy.log("validate service liveness info")
+        validate(instance=data, schema=serviceLivenessInfo_schema)
+
+        state = data.pop("state")
+        timeStamp = data.pop("timeStamp")
+        interval = data.pop("interval")
+
+        return ServiceLivenessInfo(state, timeStamp, interval)
+
+
+    def to_json(self):
+        return ignore_none_value(dict(state = self.state, timeStamp = self.timeStamp, interval = self.interval))
+
+class ServiceLivenessUpdate:
+    def __init__(self, state: ServiceState):
+        self.state = state
+    
+    @staticmethod
+    def from_json(data: dict) -> ServiceLivenessInfo:
+        # First validate the json via jsonschema
+        # cherrypy.log("validate service liveness update")
+        validate(instance=data, schema=serviceLivenessUpdate_schema)
+        state = data.pop("state")
+
+        return ServiceLivenessUpdate(state)
+
+
+    def to_json(self):
+        return ignore_none_value(dict(state = self.state))
+
+
+
+################################ MM5 data types #######################################
+# MEC 010v2 6.2.2.21
+
+class ServiceDependency:
+    def __init__(self) -> None:
+        pass
+
+class ServiceDescriptor:
+    def __init__(self) -> None:
+        pass
+
+class FeatureDependency:
+    def __init__(self) -> None:
+        pass
+
+class TransportDependency:
+    def __init__(self) -> None:
+        pass
+
+class TrafficRuleDescriptor:
+    def __init__(self, trafficRule: TrafficRule):
+        self.trafficRule = trafficRule
+    
+    def from_json(data: dict):
+        data = data | {"state": "ACTIVE"}
+        trafficRuleDescriptor = TrafficRule.from_json(data)
+        return TrafficRuleDescriptor(trafficRuleDescriptor)
+
+    def to_json(self):
+        trafficRuleDescriptor = self.trafficRule.to_json()
+        trafficRuleDescriptor.pop("state")
+        return trafficRuleDescriptor
+class DNSRuleDescriptor:
+    def __init__(self, dnsRule: DnsRule):
+        self.dnsRule = dnsRule
+    
+    def from_json(data: dict):
+        data = data | {"state": "ACTIVE"}
+        dnsRule = DnsRule.from_json(data)
+        return DNSRuleDescriptor(dnsRule)
+
+    def to_json(self):
+        dnsDescriptor = self.dnsRule.to_json()
+        dnsDescriptor.pop("state")
+        return dnsDescriptor
+
+class LatencyDescriptor:
+    def __init__(self) -> None:
+        pass
+    def from_json():
+        pass
+
+class UserContextTransferCapility:
+    def __init__(self) -> None:
+        pass
+    def from_json():
+        pass
+
+class AppNetworkPolicy:
+    def __init__(self) -> None:
+        pass
+    def from_json():
+        pass
+
+class ConfigPlatformForAppRequest:
+    def __init__(self, 
+    appServiceRequired: List(ServiceDependency) = None,
+    appServiceOptional: List(ServiceDependency) = None,
+    appServiceProduced: List(ServiceDescriptor) = None,
+    appFeatureRequired: List(FeatureDependency) = None,
+    appFeatureOptional: List(FeatureDependency) = None,
+    transportDependencies: List(TransportDependency) = None,
+    appTrafficRule: List(TrafficRuleDescriptor) = None,
+    appDNSRule: List(DNSRuleDescriptor) = None,
+    appLatency: LatencyDescriptor = None,
+    userContextTransferCapability: UserContextTransferCapility = None,
+    appNetworkPolicy: AppNetworkPolicy = None
+    ):
+        self.appServiceRequired = appServiceRequired
+        self.appServiceOptional = appServiceOptional
+        self.appServiceProduced = appServiceProduced
+        self.appFeatureRequired = appFeatureRequired
+        self.appFeatureOptional = appFeatureOptional
+        self.transportDependencies = transportDependencies
+        self.appTrafficRule = appTrafficRule
+        self.appDNSRule = appDNSRule
+        self.appLatency = appLatency
+        self.userContextTransferCapability = userContextTransferCapability
+        self.appNetworkPolicy = appNetworkPolicy
+
+    def from_json(data: dict) -> ConfigPlatformForAppRequest:
+        try:
+            appServiceRequired = []
+            for svc in data["appServiceRequired"]:
+                appServiceRequired.append(ServiceDependency.from_json(svc))
+        except KeyError:
+            appServiceRequired = None
+            
+        try:
+            appServiceOptional = []
+            for svc in data["appServiceOptional"]:
+                appServiceOptional.append(ServiceDependency.from_json(svc))
+        except KeyError:
+            appServiceOptional = None
+        
+        try:
+            appServiceProduced = []
+            for svc in data["appServiceProduced"]:
+                appServiceProduced.append(ServiceDescriptor.from_json(svc))
+        except KeyError:
+            appServiceProduced = None
+
+        try:
+            appFeatureRequired = []
+            for ft in data["appFeatureRequired"]:
+                appFeatureRequired.append(FeatureDependency.from_json(ft))
+        except KeyError:
+            appFeatureRequired = None
+
+        try:
+            appFeatureOptional = []
+            for ft in data["appFeatureOptional"]:
+                appFeatureOptional.append(FeatureDependency.from_json(ft))
+        except KeyError:
+            appFeatureOptional = None
+
+        try:
+            transportDependencies = []
+            for td in data["transportDependencies"]:
+                transportDependencies.append(TransportDependency.from_json(td))
+        except KeyError:
+            transportDependencies = None
+
+        try:
+            appTrafficRule = []
+            for tr in data["appTrafficRule"]:
+                appTrafficRule.append(TrafficRuleDescriptor.from_json(tr))
+        except KeyError:
+            appTrafficRule = None
+
+        try:
+            appDNSRule = []
+            for dr in data["appDNSRule"]:
+                appDNSRule.append(DNSRuleDescriptor.from_json(dr))
+        except KeyError:
+            appDNSRule = None
+
+        try:
+            appLatency = LatencyDescriptor.from_json(data["appLatency"])
+        except KeyError:
+            appLatency = None
+
+        try:
+            userContextTransferCapability = UserContextTransferCapility.from_json(data["userContextTransferCapability"])
+        except KeyError:
+            userContextTransferCapability = None
+        
+        try:
+            appNetworkPolicy = AppNetworkPolicy.from_json(data["appNetworkPolicy"])
+        except KeyError:
+            appNetworkPolicy = None
+
+        return ConfigPlatformForAppRequest(
+            appServiceRequired=appServiceRequired,
+            appServiceOptional=appServiceOptional,
+            appServiceProduced=appServiceProduced,
+            appFeatureRequired=appFeatureRequired,
+            appFeatureOptional=appFeatureOptional,
+            transportDependencies=transportDependencies,
+            appTrafficRule=appTrafficRule,
+            appDNSRule=appDNSRule,
+            appLatency=appLatency,
+            userContextTransferCapability=userContextTransferCapability,
+            appNetworkPolicy=appNetworkPolicy
+        )
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                appServiceRequired=self.appServiceRequired,
+                appServiceOptional=self.appServiceOptional,
+                appServiceProduced=self.appServiceProduced,
+                appFeatureRequired=self.appFeatureRequired,
+                appFeatureOptional=self.appFeatureOptional,
+                transportDependencies=self.transportDependencies,
+                appTrafficRule=self.appTrafficRule,
+                appDNSRule=self.appDNSRule,
+                appLatency=self.appLatency,
+                userContextTransferCapability=self.userContextTransferCapability,
+                appNetworkPolicy=self.appNetworkPolicy
+            )
+        )
+
+class ChangeAppInstanceState:
+    def __init__(self, appInstanceId: str, changeStateTo: ChangeStateTo, stopType: StopType = None, gracefulStopTimeout: int = None) -> None:
+        self.appInstanceId = appInstanceId
+        self.changeStateTo = changeStateTo
+        self.stopType = stopType
+        self.gracefulStopTimeout = gracefulStopTimeout
+    
+    def from_json(data: dict):
+        validate(data, schema=changeAppInstanceState_schema)
+        appInstanceId = data.pop("appInstanceId")
+        changeStateTo = ChangeStateTo(data.pop("changeStateTo"))
+        stopType = StopType(data.pop("stopType"))
+        gracefulStopTimeout = int(data.pop("gracefulStopTimeout"))
+
+        return ChangeAppInstanceState(
+            appInstanceId=appInstanceId,
+            changeStateTo=changeStateTo,
+            stopType=stopType,
+            gracefulStopTimeout=gracefulStopTimeout
+        )
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                appInstanceId=self.appInstanceId,
+                changeStateTo=self.changeStateTo,
+                stopType=self.stopType,
+                gracefulStopTimeout=self.gracefulStopTimeout
+            )
+        )
+
+class TerminateAppInstance:
+    def __init__(self, appInstanceId: str, terminationType: TerminationType, gracefulStopTimeout: int) -> None:
+        self.appInstanceId = appInstanceId
+        self.terminationType = terminationType
+        self.gracefulStopTimeout = gracefulStopTimeout
+    
+    def from_json(data: dict):
+        validate(data, schema=terminateAppInstance_schema)
+        appInstanceId = data.pop("appInstanceId")
+        terminationType = TerminationType(data.pop("terminationType"))
+        try:
+            gracefulStopTimeout = int(data.pop("gracefulStopTimeout"))
+        except KeyError:
+            gracefulStopTimeout = 0
+
+        return TerminateAppInstance(
+            appInstanceId=appInstanceId,
+            terminationType=terminationType,
+            gracefulStopTimeout=gracefulStopTimeout
+        )
+
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                appInstanceId=self.appInstanceId,
+                terminationType=self.terminationType,
+                gracefulStopTimeout=self.gracefulStopTimeout
+            )
+        )
+
+
+
+class AppInstanceState:
+    def __init__(self, instantiationState: InstantiationState, operationalState: OperationalState = None):
+        self.instantiationState = instantiationState
+        self.operationalState = operationalState
+    
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                instantiationState=self.instantiationState,
+                operationalState=self.operationalState
+            )
+        )
+    
+
+############################ EXTRA SERVICES (DNS AND OAUTH) ###########################################
+
+class OAuthServer:
+    def __init__(self, url: str, port: str) -> None:
+        self.url = url
+        self.port = port
+    
+    def register(self):
+        response = requests.get("http://%s:%s/register" %(self.url, self.port))
+        response = json.loads(response.content)
+        if (response['message'] == 'Client registered successfully'):
+            response.pop('message')
+            return response
+        
+        return False
+        
+    
+    def get_token(self, client_id:str, client_secret:str):
+        credentials = dict(grant_type="client_credentials", client_id=client_id, client_secret=client_secret)
+        response = requests.post("http://%s:%s/token" %(self.url, self.port), json=credentials)
+        if response.status_code == 200:
+            token = json.loads(response.content)['access_token']
+            return token
+        
+        return False
+    
+    def validate_token(self, access_token:str):
+        data = dict(access_token=access_token)
+        response = requests.post("http://%s:%s/validate_token" %(self.url, self.port), json=data)
+        return response.status_code == 200
+    
+    def delete_client(self, client_id:str, client_secret:str):
+        credentials = dict(client_id=client_id, client_secret=client_secret)
+        response = requests.post("http://%s:%s/delete" %(self.url, self.port), json=credentials)        
+        return response.status_code == 200
+
+class DnsApiServer:
+    def __init__(self, url: str, port: str, zone: str = "zone0") -> None:
+        self.url = url
+        self.port = port
+        self.zone = zone
+
+    def create_record(self, domain: str, ip: str, ttl: int):
+
+        headers = {"Content-Type": "application/json"}
+        query = {"name": domain, "ip": ip, "ttl": ttl}
+
+        url_0 = 'http://%s:%s/dns_support/v1/api/%s/record' % (self.url, self.port, self.zone)
+
+        response = requests.post(url_0, headers=headers, params=query)
+
+        # print(f"\n# DNS rule creation #\nresponse: {response.json()}\n")
+
+        return response.status_code == 200
+
+    def remove_record(self, domain: str):
+        
+        headers = {"Content-Type": "application/json"}
+        
+        url = 'http://%s:%s/dns_support/v1/api/%s/record?name=%s' %(self.url, self.port, self.zone, domain)
+        
+        response = requests.delete(url, headers=headers)
+
+        return response.status_code == 200

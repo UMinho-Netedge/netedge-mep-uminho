@@ -1,4 +1,4 @@
-# Copyright 2022 Instituto de Telecomunicações - Aveiro
+# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ links_schema = {
     "properties": {
         "self": linktype_schema,
         "subscriptions": {"type": "array", "items": subscription_schema},
-        "liveness": linktype_schema,
+        "liveness": linktype_schema, #não encontrei no MEC011
     },
     "required": ["self"],
     "additionalProperties": False,
@@ -97,9 +97,10 @@ filteringcriteria_schema = {
 seravailabilitynotificationsubscription_schema = {
     "type": "object",
     "properties": {
-        "callbackReference": {"type": "string"},
-        "filteringCriteria": filteringcriteria_schema,
         "subscriptionType": {"type": "string"},
+        "callbackReference": {"type": "string"},
+        "_links": links_schema, #changed
+        "filteringCriteria": filteringcriteria_schema,
     },
     "additionalProperties": False,
     "required": ["callbackReference"],
@@ -140,6 +141,7 @@ endpointinfo_address_schema = {
     "required": ["host", "port"],
     "additionalProperties": False,
 }
+
 endpointinfo_addresses_schema = {
     "type": "object",
     "properties": {
@@ -233,7 +235,376 @@ appreadyconfirmation_schema = {
 
 appterminationconfirmation_schema = {
     "type": "object",
-    "properties": {"operationAction": {"type": "string"}},
+    "properties": {
+        "operationAction": {
+            "enum": [
+                "STOPPING",
+                "TERMINATING"
+                ]
+        }
+    },
     "required": ["operationAction"],
     "additionalProperties": False,
+}
+
+appTerminationNotificationSubscription_schema = {
+    "type": "object",
+    "properties": {
+        "subscriptionType": {"type": "string"},
+        "callbackReference": {"type": "string"},
+        "_links": links_schema,
+        "appInstanceId": {"type": "string"},
+    },
+    "additionalProperties": False,
+    "required": ["subscriptionType","callbackReference","appInstanceId"],
+}
+
+service_get_schema = {
+    "type": "object",
+    "properties": {
+        "serInstanceId": {"type": "string"},
+        "serName": {"type": "string"},
+        "serCategory": {"type": "string"}, #just the ser_category_id
+        "scopeOfLocality": {
+            "enum": [
+                "MEC_SYSTEM",
+                "MEC_HOST",
+                "NFVI_POP",
+                "ZONE",
+                "ZONE_GROUP",
+                "NFVI_NODE",
+            ]
+        },
+        "consumedLocalOnly": {"type": "boolean"},
+        "isLocal": {"type": "boolean"} 
+    },
+    "dependentSchemas": {
+        "serInstanceId": {
+            "not": {"required": ["serName"]}
+            },
+        "serName": {
+            "not": {"required": ["serCategory"]}
+            },
+        "serCategory": {
+            "not": {"required": ["serInstanceId"]}
+            }
+    },
+    "additionalProperties": False,
+}
+
+dns_rule_schema = {
+    "type": "object",
+    "properties": {
+        "dnsRuleId": {"type": "string"},
+        "domainName": {"type": "string"},
+        "ipAddressType": {
+            "enum": [
+                "IP_V6",
+                "IP_V4"
+                ]
+        },
+        "ipAddress": {"type": "string"},
+        "ttl": {"type": "integer"},
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE"
+                ]
+        }
+    },
+    "required": ["dnsRuleId", "domainName", "ipAddressType", "state"],
+    "additionalProperties": False,
+}
+
+dns_rule_put_schema = {
+    "type": "object",
+    "properties": {
+        "dnsRuleId": {"type": "string"},
+        "domainName": {"type": "string"},
+        "ipAddressType": {
+            "enum": [
+                "IP_V6",
+                "IP_V4"
+                ]
+        },
+        "ipAddress": {"type": "string"},
+        "ttl": {"type": "integer"},
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE"
+                ]
+        }
+    },
+    "anyOf": [
+        {"required": ["dnsRuleId"]},
+        {"required": ["domainName"]},
+        {"required": ["ipAddressType"]},
+        {"required": ["ipAddress"]},
+        {"required": ["ttl"]},
+        {"required": ["state"]}
+    ],
+    "additionalProperties": False,
+}
+
+current_time_schema = {
+    "type": "object",
+    "properties": {
+        "seconds": {"type": "integer"},
+        "nanoseconds": {"type": "integer"},
+        "timeSourceStatus": {
+            "enum": [
+                "TRACEABLE",
+                "NONTRACEABLE"
+                ]
+        }
+    },
+    "required": ["seconds", "nanoseconds", "timeSourceStatus"],
+    "additionalProperties": False,
+}
+
+timeStamp_schema = {
+    "type": "object",
+    "properties": {
+        "seconds": {"type": "integer"},
+        "nanoseconds": {"type": "integer"}
+    },
+    "required": ["seconds", "nanoseconds"],
+    "additionalProperties": False,
+}
+
+serviceLivenessInfo_schema = {
+    "type": "object",
+    "properties": {
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "SUSPENDED"
+            ]
+        },
+        "timeStamp": timeStamp_schema,
+        "interval": {"type": "integer"}
+    },
+    "required": ["state", "timeStamp", "interval"],
+    "additionalProperties": False,
+}
+
+serviceLivenessUpdate_schema = {
+    "type": "object",
+    "properties": {
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "SUSPENDED"
+            ]
+        }
+    },
+    "required": ["state"],
+    "additionalProperties": False,
+}
+
+
+trafficFilter_schema = {
+    "type": "object",
+    "properties": {
+        "srcAddress": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "dstAddress": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "srcPort": {
+            "type": "array",
+            "items": {"type": "string"},
+        },        
+        "dstPort": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "protocol": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "tag": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "srcTunnelAddress": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "tgtTunnelAddress": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "srcTunnelPort": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "dstTunnelPort": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+        "qCI": {"type": "integer"},
+        "dSCP": {"type": "integer"},
+        "tC": {"type": "integer"},
+    },
+    "required": [],
+    "additionalProperties": False,
+}
+
+tunnelInfo_schema = {
+    "type": "object",
+    "properties": {
+        "tunnelType": {
+            "enum":[
+                "GTP_U",
+                "GRE"
+            ]
+        },
+        "tunnelDstAddress": {"type": "string"},
+        "tunnelSrcAddress": {"type": "string"},
+    },
+    "required": ["tunnelType"],
+    "additionalProperties": False,
+}
+
+destinationInterface_schema = {
+    "type": "object",
+    "properties": {
+        "interfaceType": {
+            "enum":[
+                "TUNNEL",
+                "MAC",
+                "IP"
+            ]
+        },
+        "tunnelInfo": tunnelInfo_schema,
+        "srcMacAddress": {"type": "string"},
+        "dstMacAddress": {"type": "string"},
+        "dstIpAddress": {"type": "string"},
+    },
+    "required": ["interfaceType"],
+    "additionalProperties": False,
+}
+
+
+trafficRule_schema = {
+    "type": "object",
+    "properties": {
+        "trafficRuleId": {"type": "string"},
+        "filterType": {
+            "enum":[
+                "FLOW",
+                "PACKET"
+            ]
+        },
+        "priority": {"type": "integer"},
+        "trafficFilter": {
+            "type": "array",
+            "items": trafficFilter_schema,
+            "minItems": 1
+        },
+        "action": {
+            "enum": [
+                "DROP",
+                "FORWARD_DECAPSULATED",
+                "FORWARD_ENCAPSULATED",
+                "PASSTHROUGH",
+                "DUPLICATE_DECAPSULATED",
+                "DUPLICATE_ENCAPSULATED"
+            ]
+        },
+        "dstInterface": {
+            "type": "array",
+            "items": destinationInterface_schema,
+            "maxItems": 2
+        },
+        "state": {
+            "enum": [
+                "ACTIVE",
+                "INACTIVE"
+            ]
+        }
+    },
+    "required": ["trafficRuleId", "filterType", "priority", "trafficFilter", "action", "state"],
+    "additionalProperties": False,
+}
+
+trafficRuleDescriptor_schema = {
+    "type": "object",
+    "properties": {
+        "trafficRuleId": {"type": "string"},
+        "filterType": {
+            "enum":[
+                "FLOW",
+                "PACKET"
+            ]
+        },
+        "priority": {"type": "integer"},
+        "trafficFilter": {
+            "type": "array",
+            "items": trafficFilter_schema,
+            "minItems": 1
+        },
+        "action": {
+            "enum": [
+                "DROP",
+                "FORWARD_DECAPSULATED",
+                "FORWARD_ENCAPSULATED",
+                "PASSTHROUGH",
+                "DUPLICATE_DECAPSULATED",
+                "DUPLICATE_ENCAPSULATED"
+            ]
+        },
+        "dstInterface": {
+            "type": "array",
+            "items": destinationInterface_schema,
+            "maxItems": 2
+        }
+    },
+    "required": ["trafficRuleId", "filterType", "priority", "trafficFilter", "action", "state"],
+    "additionalProperties": False,
+}
+
+changeAppInstanceState_schema = {
+    "type": "object",
+    "properties": {
+        "appInstanceId": {"type": "string"},
+        "changeStateTo": {
+            "enum":[
+                "STARTED",
+                "STOPPED"
+            ]
+        },
+        "stopType": {
+            "enum":[
+                "FORCEFUL",
+                "GRACEFUL"
+            ]
+        },
+        "gracefulStopTimeout": {"type": "integer"} 
+    },
+    "required": ["appInstanceId", "changeStateTo"],
+    "aditionalProperties": False,
+}
+
+terminateAppInstance_schema = {
+    "type": "object",
+    "properties": {
+        "appInstanceId": {"type": "string"},
+        "terminationType": {
+            "enum":[
+                "FORCEFUL",
+                "GRACEFUL"
+            ]
+        },
+        "gracefulStopTimeout": {"type": "integer"} 
+    },
+    "required": ["appInstanceId", "terminationType"],
+    "aditionalProperties": False,
 }

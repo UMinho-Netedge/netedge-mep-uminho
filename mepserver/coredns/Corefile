@@ -1,0 +1,12 @@
+(snip_base) {
+    log
+    errors
+}
+
+.:1053 {
+    import snip_base
+    file /etc/coredns/zone0.db {
+        reload 5s
+    }
+    reload 5s
+}

@@ -1,4 +1,4 @@
-# Copyright 2022 Instituto de Telecomunicações - Aveiro
+# Copyright 2022 Centro ALGORITMI - University of Minho and Instituto de Telecomunicações - Aveiro
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,21 +12,33 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
+from ast import arg
 from json import JSONEncoder
 import json
 from enum import Enum
+
+from mp1 import models
 from .mep_exceptions import *
 import cherrypy
-import validators
-from validators import ValidationFailure
+from rfc3986 import is_valid_uri
 from typing import List
 import argparse
 from abc import ABC, abstractmethod
+from . import models
+import re
+import pprint as pp
+
+#from .models import ProblemDetails
+
+# Camel case to snake case
+def camel_to_snake(name):
+    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
 
 
 def validate_uri(href: str) -> str:
-    valid_href = validators.url(href)
-    if isinstance(valid_href, ValidationFailure):
+    valid_href = is_valid_uri(href)
+    if not valid_href:
         raise TypeError
     return href
 
@@ -60,6 +72,22 @@ def ignore_none_value(data: dict) -> dict:
     :rtype: dict
     """
     return {key: val for key, val in data.items() if val is not None}
+
+
+def none_to_empty_brackets(data: dict) -> dict:
+    """
+    Replace values of dictionary keys with None value for empty brackets {}
+
+    :param data: Dictionary containing data to be returned
+    :type data: dict
+    :return: Initial Dictionary but with empty brackets where value of keys were None
+    :rtype: dict
+    """
+    for key, val in data.items():
+        if val is None:
+            data[key] = {}
+
+    return data
 
 
 def mongodb_query_replace(query: dict) -> dict:
@@ -104,7 +132,10 @@ def json_out(cls):
     def json_out_wrapper(func):
         def inner(*args, **kwargs):
             object_to_be_serialized = func(*args, **kwargs)
-            cherrypy.response.headers["Content-Type"] = "application/json"
+            if isinstance(object_to_be_serialized, models.ProblemDetails):
+                cherrypy.response.headers["Content-Type"] = "application/problem+json"
+            else:
+                cherrypy.response.headers["Content-Type"] = "application/json"
             return json.dumps(object_to_be_serialized, cls=cls).encode("utf-8")
 
         return inner
@@ -158,15 +189,15 @@ class ServicesQueryValidator(UrlQueryValidator):
         is_local: bool
         scope_of_locality: str
         """
-        # Used for scope_of_locality and is_local to transform the url query data to actual python values
+        # Used for consumed_local_only and is_local to transform the url query data to actual python values
         # if there is no value for the query we will query for both of the possible boolean values
         bool_converter = {"true": True, "false": False, None: [True, False]}
 
         ser_category_id = kwargs.get("ser_category_id")
         ser_instance_id = kwargs.get("ser_instance_id")
         ser_name = kwargs.get("ser_name")
-        # If 2 are none means only one is set and thus the mutual exclusive attribute is valid so we can move on
-        # with the validation
+        # If 2 are None it means only one is set and thus the mutual exclusive 
+        # attribute is valid so we can move on with the validation.
         # If there are 3 it means there wasn't any query parameter
         mutual_exclusive = {
             "ser_category_id": ser_category_id,
@@ -197,7 +228,8 @@ class ServicesQueryValidator(UrlQueryValidator):
                         and not scope_of_locality.isdigit()
                     ) or scope_of_locality is None:
                         return kwargs
-        raise InvalidQuery
+
+        raise InvalidQuery()
 
     @staticmethod
     def get_required_fields():
@@ -262,3 +294,24 @@ def check_port(port, base=1024):
     if value <= base:
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
     return value
+
+def trafficRuleToNetworkPolicy(appInstanceId: str, trafficRuleId: str, data: dict):
+
+    networkPolicy = {
+        "apiVersion": "networking.k8s.io/v1",
+        "kind": "NetworkPolicy",
+        "metadata": {
+            "name": "networkpolicy-%s" %trafficRuleId,
+            "namespace": "%s" %appInstanceId
+        },
+        "spec": {
+            "podSelector": {
+                "matchLabels": {"appInstanceId": "%s" %appInstanceId}
+            },
+            "policyTypes": ["Ingress", "Egress"],
+            "ingress": data["ingress"],
+            "egress": data["egress"]
+        }
+    }
+    return networkPolicy
+    
