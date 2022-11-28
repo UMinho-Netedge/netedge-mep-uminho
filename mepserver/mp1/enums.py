@@ -133,3 +133,11 @@ class OperationStatus(Enum):
     PROCESSING = "PROCESSING"
     SUCCESSFULLY_DONE = "SUCCESSFULLY_DONE"
     FAILED = "FAILED"
+
+class InstantiationState(Enum):
+    NOT_INSTANTIATED = "NOT_INSTANTIATED"
+    INSTANTIATED = "INSTANTIATED"
+
+class OperationalState(Enum):
+    STARTED = "STARTED"
+    STOPPED = "STOPPED"

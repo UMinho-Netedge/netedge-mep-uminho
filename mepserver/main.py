@@ -335,7 +335,7 @@ def main(database: Type[DatabaseBase]):
     mepm_dispatcher = cherrypy.dispatch.RoutesDispatcher()
 
     mepm_dispatcher.connect(
-        name="Configure MEC App on start-up",
+        name="Configure MEC App instance on start-up",
         action="mecApp_configure",
         controller=MecPlatformMgMtController,
         route="/applications/:appInstanceId/configure",
@@ -343,19 +343,27 @@ def main(database: Type[DatabaseBase]):
     )
 
     mepm_dispatcher.connect(
-        name="Update MEC App Status",
-        action="mecAppStatus_update",
+        name="Update MEC App instance Status",
+        action="mecApp_updateState",
         controller=MecPlatformMgMtController,
         route="/applications/:appInstanceId/update_state",
         conditions=dict(method=["POST"]),
     )
 
     mepm_dispatcher.connect(
-        name="Update MEC App Status",
+        name="Terminte MEC App instance",
         action="mecApp_terminate",
         controller=MecPlatformMgMtController,
         route="/applications/:appInstanceId/terminate",
         conditions=dict(method=["POST"]),
+    )
+
+    mepm_dispatcher.connect(
+        name="Query LCM Operation",
+        action="lcmOpp_get",
+        controller=MecPlatformMgMtController,
+        route="/app_lcm_op_occs/:appLcmOpOccId",
+        conditions=dict(method=["GET"]),
     )
 
     mepm_dispatcher.connect(
@@ -387,14 +395,6 @@ def main(database: Type[DatabaseBase]):
         action="traffic_rules_post",
         controller=MecPlatformMgMtController,
         route="/applications/:appInstanceId/traffic_rules/",
-        conditions=dict(method=["POST"]),
-    )
-
-    mepm_dispatcher.connect(
-        name="Remove all collections from database",
-        action="remove_db_collections",
-        controller=MecPlatformMgMtController,
-        route="/applications/remove_all",
         conditions=dict(method=["POST"]),
     )
 

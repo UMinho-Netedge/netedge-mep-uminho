@@ -15,10 +15,8 @@ class MecPlatformMgMtController:
     @json_out(cls=NestedEncoder)
     def mecApp_configure(self, appInstanceId: str):
         #ConfigPlatform for App Request
-        times = dict()
-        times["started config"] = time.time()
         
-        # cherrypy.log("Received request to configure app %s" %appInstanceId)
+        cherrypy.log("Received request to configure app %s" %appInstanceId)
 
         appStatus = cherrypy.thread_data.db.query_col(
             "appStatus",
@@ -26,19 +24,17 @@ class MecPlatformMgMtController:
             find_one=True,
         )
 
-        # If app exists in db
+        # If app exists in db return error
         if appStatus is not None:
             error_msg = "Application %s already existis." % (appInstanceId)
             error = Conflict(error_msg)
             return error.message()
 
         try:
-            times["oauth config started"] = time.time()
             oauth = cherrypy.config.get("oauth_server")
             credentials = oauth.register()
             token = oauth.get_token(credentials["client_id"], credentials["client_secret"])
             credentials["access_token"] = token
-            # print(credentials)
             secret = dict(access_token=base64.b64encode(token.encode('ascii')).decode('ascii'))
 
             CallbackController.execute_callback(
@@ -52,39 +48,15 @@ class MecPlatformMgMtController:
             error = Forbidden(error_msg)
             return error.message()
 
-        times["oauth config ended"] = time.time()
-
-        times["oauth config"] = times["oauth config ended"] - times["oauth config started"]
-
         data = cherrypy.request.json
 
         try:
             configRequest = ConfigPlatformForAppRequest.from_json(data)
         except (TypeError, jsonschema.exceptions.ValidationError) as e:
             error = BadRequest(e)
-            return error.message()
-        
-        
-        lifecycleOperationOccurrenceId = str(uuid.uuid4())
-    
-        lcmOperationOccurence = dict(
-            lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId,
-            appInstanceId=appInstanceId, 
-            operation="STARTING",
-            operationStatus=OperationStatus.PROCESSING.name
-        )
+            return error.message()  
 
-        cherrypy.thread_data.db.create("lcmOperations", lcmOperationOccurence)
-
-        times["trafficRules config started"] = time.time()
-        
-
-        # CallbackController.configure_trafficRulesByDescriptor(
-        #     appInstanceId=appInstanceId, 
-        #     trafficRules=configRequest.appTrafficRule, 
-        #     sleep_time=0
-        # )
-
+        # Configure Traffic Rules
         for ruleDescriptor in configRequest.appTrafficRule:
 
             rule = ruleDescriptor.trafficRule
@@ -103,13 +75,7 @@ class MecPlatformMgMtController:
                 )
             )
         
-        times["dnsRules config started"] = time.time()
-        # CallbackController.configure_DnsRulesByDescriptor(
-        #     appInstanceId=appInstanceId, 
-        #     dnsRules=configRequest.appDNSRule, 
-        #     sleep_time=0           
-        # )
-
+        # Configure DNS Rules
         for ruleDescriptor in configRequest.appDNSRule:
 
             rule = ruleDescriptor.dnsRule
@@ -128,25 +94,36 @@ class MecPlatformMgMtController:
                 } | rule.to_json()
             cherrypy.thread_data.db.create("dnsRules", new_rec)
 
+        appState  = AppInstanceState(InstantiationState.INSTANTIATED.value, OperationalState.STARTED.value)
         appStatusDict = dict(
-            appInstanceId=appInstanceId, 
-            indication="STARTING", 
+            appInstanceId=appInstanceId,
+            state = appState.to_json(),
+            indication="STARTING",
             services=[], 
             oauth=credentials
         )
 
         cherrypy.thread_data.db.create("appStatus", appStatusDict)
 
-        times["ended config"] = time.time()
+        lifecycleOperationOccurrenceId = str(uuid.uuid4())
+        lastModified = cherrypy.response.headers['Date']
+    
+        lcmOperationOccurence = dict(
+            lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId,
+            appInstanceId=appInstanceId, 
+            stateEnteredTime=lastModified,
+            operation="STARTING",
+            operationStatus=OperationStatus.PROCESSING.name
+        )
 
-        times["config total"] = times["ended config"] - times["started config"]
-        cherrypy.log(json.dumps(times))
+        cherrypy.thread_data.db.create("lcmOperations", lcmOperationOccurence)
+
         cherrypy.response.status = 201
         return dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId)
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
-    def mecAppStatus_update(self, appInstanceId: str):
+    def mecApp_updateState(self, appInstanceId: str):
 
         cherrypy.log("Received request to change app %s state" %appInstanceId)
 
@@ -173,69 +150,73 @@ class MecPlatformMgMtController:
             error = BadRequest(e)
             return error.message()
 
-        
-        ## Do the terminationNotification task of change app status
-        subscription = cherrypy.thread_data.db.query_col(
-            "appSubscriptions",
-            query=dict(appInstanceId=appInstanceId),
-            fields=dict(subscriptionId=0),
-            find_one=True,
-        )
-        
-        subscription = AppTerminationNotificationSubscription.from_json(subscription)
+        if updateState.changeStateTo.value == appStatus["state"]["operationalState"].value:
+            error_msg = "Application %s already in state %s." % (appInstanceId, updateState.changeStateTo.value)
+            error = Conflict(error_msg)
+            return error.message()
 
-        if updateState.changeStateTo.name == ChangeStateTo.STOPPED.name:
+
+        if updateState.changeStateTo.value == ChangeStateTo.STOPPED.value:
             operationAction = OperationActionType.STOPPING
-        ## Do the terminationNotification task of change app status
-        notification = AppTerminationNotification(
-                operationAction=operationAction, 
-                maxGracefulTimeout=updateState.gracefulStopTimeout,
-                _links=subscription._links
+
+            ## Do the terminationNotification task of change app status
+            subscription = cherrypy.thread_data.db.query_col(
+                "appSubscriptions",
+                query=dict(appInstanceId=appInstanceId),
+                fields=dict(subscriptionId=0),
+                find_one=True,
             )
-        CallbackController.execute_callback(
-            args=[subscription, notification],
-            func=CallbackController._callback_function,
-            sleep_time=10
-        )
+            
+            subscription = AppTerminationNotificationSubscription.from_json(subscription)
+
+            ## Do the terminationNotification task of change app status
+            notification = AppTerminationNotification(
+                    operationAction=operationAction, 
+                    maxGracefulTimeout=updateState.gracefulStopTimeout,
+                    _links=subscription._links
+                )
+            CallbackController.execute_callback(
+                args=[subscription, notification],
+                func=CallbackController._callback_function,
+                sleep_time=10
+            )
+
+        appState  = AppInstanceState(InstantiationState.INSTANTIATED, OperationalState.STOPPED)
 
         appInstanceDict = dict(appInstanceId=appInstanceId)
         appStatusDict = dict(
-            {"indication" : updateState.changeStateTo.name}
+            indication=updateState.changeStateTo.name,
+            state=appState.to_json()
         )
-        updateStatus = cherrypy.thread_data.db.update(
+
+
+
+        cherrypy.thread_data.db.update(
             "appStatus", 
             appInstanceDict, 
             appStatusDict
         )
 
         lifecycleOperationOccurrenceId = str(uuid.uuid4())
-        
+        lastModified = cherrypy.response.headers['Date']
+
         lcmOperationOccurence = dict(
             lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId,
             appInstanceId=appInstanceId, 
+            stateEnteredTime=lastModified,
             operation=updateState.changeStateTo.name,
             operationStatus=OperationStatus.PROCESSING.name
         )
 
         cherrypy.thread_data.db.create("lcmOperations", lcmOperationOccurence)
-
-        # AppStatus confirmation of indication change
-        # print(f"\n# AppStatus confirmation #\nAppStatus of appInstanceId {appInstanceId}:")
-        # pprint.pprint(cherrypy.thread_data.db.query_col("appStatus", dict(appInstanceId=appInstanceId), find_one=True,))
-        # print(f"updateStatus.modified_count {updateStatus.modified_count}")
-        # print(f"updateStatus.matched_count {updateStatus.matched_count}\n")
-        
+       
         return dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId)
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
     def mecApp_terminate(self, appInstanceId: str):
-        
-        times = dict()
-        times["started terminate"] = time.time()
 
-
-        # cherrypy.log("Received request to terminate app %s state" %appInstanceId)
+        cherrypy.log("Received request to terminate app %s state" %appInstanceId)
 
         appStatus = cherrypy.thread_data.db.query_col(
             "appStatus",
@@ -287,17 +268,20 @@ class MecPlatformMgMtController:
             appStatusDict = dict(
                 {"indication" : OperationActionType.TERMINATING.name}
             )
-            updateStatus = cherrypy.thread_data.db.update(
+            
+            cherrypy.thread_data.db.update(
                 "appStatus", 
                 appInstanceDict, 
                 appStatusDict
             )
 
             lifecycleOperationOccurrenceId = str(uuid.uuid4())
-            
+            lastModified = cherrypy.response.headers['Date']
+
             lcmOperationOccurence = dict(
                 lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId,
                 appInstanceId=appInstanceId, 
+                stateEnteredTime=lastModified,
                 operation=OperationActionType.TERMINATING.name,
                 operationStatus=OperationStatus.PROCESSING.name
             )
@@ -306,8 +290,6 @@ class MecPlatformMgMtController:
 
             return dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId)
 
-
-        times["oauth removal started"] = time.time()
         oauth = cherrypy.config.get("oauth_server")
 
         oauth.delete_client(appStatus['oauth']['client_id'], appStatus['oauth']['client_secret'])
@@ -317,12 +299,6 @@ class MecPlatformMgMtController:
                 func=CallbackController._remove_secret,
                 sleep_time=0
             )
-
-        times["oauth removal ended"] = time.time()
-
-        times["oauth removal"] = times["oauth removal ended"] - times["oauth removal started"]
-
-        times["trafficRules removal started"] = time.time()
 
         query = {"appInstanceId": appInstanceId}
         
@@ -344,8 +320,6 @@ class MecPlatformMgMtController:
                query=dict(trafficRuleId=rule['trafficRuleId']))
             
 
-        times["dnsRules config started"] = time.time()
-
         query = dict(appInstanceId=appInstanceId, state="ACTIVE")
 
         result = cherrypy.thread_data.db.query_col("dnsRules", query)
@@ -366,21 +340,115 @@ class MecPlatformMgMtController:
 
 
         lifecycleOperationOccurrenceId = str(uuid.uuid4())
+        lastModified = cherrypy.response.headers['Date']
             
         lcmOperationOccurence = dict(
                 lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId,
                 appInstanceId=appInstanceId, 
+                stateEnteredTime=lastModified,
                 operation=OperationActionType.TERMINATING.name,
                 operationStatus=OperationStatus.SUCCESSFULLY_DONE.name
             )
         cherrypy.thread_data.db.create("lcmOperations", lcmOperationOccurence)
 
-        times["ended terminate"] = time.time()
-
-        times["terminate total"] = times["ended terminate"] - times["started terminate"]
-        cherrypy.log(json.dumps(times))
-        
         return dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId)
+
+
+    @cherrypy.tools.json_in()
+    @json_out(cls=NestedEncoder)
+    def mecApp_update_config(self, appInstanceId: str):
+        #Update App configuration
+        
+        cherrypy.log("Received request to reconfigure app %s" %appInstanceId)
+
+        appStatus = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query=dict(appInstanceId=appInstanceId),
+            find_one=True,
+        )
+
+        # If app exists in db
+        if appStatus is None or appsStatus['state'] == "NOT_INSTANTIATED":
+            error_msg = "Application %s does not exist." % (appInstanceId)
+            error = Conflict(error_msg)
+            return error.message()
+
+        data = cherrypy.request.json
+
+        try:
+            configRequest = ConfigPlatformForAppRequest.from_json(data)
+        except (TypeError, jsonschema.exceptions.ValidationError) as e:
+            error = BadRequest(e)
+            return error.message()  
+
+        # Configure Traffic Rules
+        for ruleDescriptor in configRequest.appTrafficRule:
+
+            rule = ruleDescriptor.trafficRule
+                
+            CallbackController.execute_callback(
+                args=[appInstanceId, rule],
+                func=CallbackController._configureTrafficRule,
+                sleep_time=0
+            )
+
+            cherrypy.thread_data.db.create(
+                "trafficRules",
+                object_to_mongodb_dict(
+                rule,
+                extra=dict(appInstanceId=appInstanceId)
+                )
+            )
+        
+        # Configure DNS Rules
+        for ruleDescriptor in configRequest.appDNSRule:
+
+            rule = ruleDescriptor.dnsRule
+                
+            CallbackController.execute_callback(
+                args=[appInstanceId, rule],
+                func=CallbackController._configureDnsRule,
+                sleep_time=0
+            )
+
+            lastModified = cherrypy.response.headers['Date']
+
+            new_rec = {
+                "appInstanceId": appInstanceId, 
+                "lastModified": lastModified,
+                } | rule.to_json()
+            cherrypy.thread_data.db.create("dnsRules", new_rec)
+
+        cherrypy.response.status = 204
+        return None
+
+
+
+
+    @json_out(cls=NestedEncoder)
+    def lcmOpp_get(self, appLcmOpOccId:str, **kwargs):
+
+        """
+        Get the status of a LCM operation
+        """
+        
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+
+        query = dict(
+            lifecycleOperationOccurrenceId=appLcmOpOccId
+        )
+        result = cherrypy.thread_data.db.query_col(
+            "lcmOperations", query=query, find_one=True
+        )
+        if result is None:
+            error = NotFound("No LCM operation found with the given id")
+            return error.message()
+        return result
+
+
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
@@ -625,13 +693,4 @@ class MecPlatformMgMtController:
         cherrypy.response.status = 200
         return data
 
-    @json_out(cls=NestedEncoder)
-    def remove_db_collections(self):
-        app = cherrypy.thread_data.db.remove_many("appStatus", {})
-        serv = cherrypy.thread_data.db.remove_many("services", {})
-        dns = cherrypy.thread_data.db.remove_many("dnsRules", {})
-
-        return {"appStatus": app.deleted_count,
-                "services": serv.deleted_count,
-                "dnsRules": dns.deleted_count}
 

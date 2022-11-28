@@ -98,8 +98,18 @@ class ApplicationConfirmationController:
 
         HTTP STATUS CODE: 204, 401, 403, 404, 409, 429
         """
-        # TODO confirm the provided appInstanceId with the mongodb
-        # TODO PROPER PROBLEM DETAILS
+        appStatus = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query=dict(appInstanceId=appInstanceId),
+            find_one=True,
+        )
+
+        # If app does not exist in db
+        if appStatus is None:
+            error_msg = "Application %s does not exist." % (appInstanceId)
+            error = NotFound(error_msg)
+            return error.message()
+        
         # Create AppReadyConfirmation from json to validate the input
         appConfirmReady = AppReadyConfirmation.from_json(cherrypy.request.json)
         cherrypy.log(appConfirmReady.indication.name)

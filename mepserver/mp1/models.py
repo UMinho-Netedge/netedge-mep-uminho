@@ -1655,6 +1655,24 @@ class TerminateAppInstance:
             )
         )
 
+
+
+class AppInstanceState:
+    def __init__(self, instantiationState: InstantiationState, operationalState: OperationalState = None):
+        self.instantiationState = instantiationState
+        self.operationalState = operationalState
+    
+    def to_json(self):
+        return ignore_none_value(
+            dict(
+                instantiationState=self.instantiationState,
+                operationalState=self.operationalState
+            )
+        )
+    
+
+############################ EXTRA SERVICES (DNS AND OAUTH) ###########################################
+
 class OAuthServer:
     def __init__(self, url: str, port: str) -> None:
         self.url = url
