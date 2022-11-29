@@ -255,7 +255,8 @@ class AppDnsRulesController:
             if prev_state != new_state:
                 # If there is a change in the state of the DNS rule, check if it is valid
 
-                dict_dns = cherrypy.config.get("dns")
+                #dict_dns = cherrypy.config.get("dns")
+                dnsApiServer = cherrypy.config.get("dns_api_server")
 
                 # If the DNS rule state changed from INACTIVE to ACTIVE
                 if new_state == "ACTIVE":
@@ -264,15 +265,8 @@ class AppDnsRulesController:
                     ttl = prev_dns_rule["ttl"]
 
                     # Create DNS rule in the DNS server (via API)
-                    headers = {"Content-Type": "application/json"}
-                    query = {"name": domain, "ip": ip, "ttl": ttl}
-                    
-                    url_0 = 'http://%s:%s/dns_support/v1/api/%s/record' %(dict_dns['dnsHost'], dict_dns['dnsPort'], dict_dns['dnsZone'])
-                    response = requests.post(
-                                url_0,
-                                headers=headers,
-                                params=query
-                                )
+                    dnsApiServer.create_record(domain, ip, ttl)
+                    cherrypy.log("Activated DNS rule %s, associated with app %s, in DNS server: %s" % (dnsRuleId, appInstanceId, domain))
 
                 # If the DNS rule state changed from ACTIVE to INACTIVE
                 elif new_state == "INACTIVE":
@@ -281,26 +275,21 @@ class AppDnsRulesController:
                     domain = prev_dns_rule["domainName"]
 
                     # Delete DNS rule in the DNS server (via API)
-                    headers = {"Content-Type": "application/json"}
-                    url = 'http://%s:%s/dns_support/v1/api/%s/record?name=%s' %(dict_dns['dnsHost'], dict_dns['dnsPort'], dict_dns['dnsZone'], domain)
-                    response = requests.delete(
-                                url,
-                                headers=headers,
-                                )
+                    dnsApiServer.delete_record(domain)
+                    cherrypy.log("Deactivated DNS rule %s, associated with app %s, in DNS server: %s" % (dnsRuleId, appInstanceId, domain))
 
-            ##
-
+            # Check if conditional requests (ETag and Last-Modified) are satisfied
+            # avoiding write conflicts
             last_modified = prev_dns_rule['lastModified']
-            print(f"\nPOST last_modified {last_modified}")
             del prev_dns_rule['appInstanceId'], prev_dns_rule['lastModified']
 
             dns_rule_dict = object_to_mongodb_dict(prev_dns_rule)
 
-            # ETag of previous document
+            # ETag of previous rule
             prev_rule = json.dumps(dns_rule_dict)
             prev_etag = md5(prev_rule.encode('utf-8')).hexdigest()
-            print(f"\nPOST prev_etag {prev_etag}")
             
+            # Validate ETag conditional request
             try:
                 cherrypy.response.headers['ETag'] = prev_etag
                 cherrypy.lib.cptools.validate_etags()
@@ -309,6 +298,7 @@ class AppDnsRulesController:
                 error = Precondition(error_msg)
                 return error.message()
 
+            # Validate Last-Modified conditional request
             try:
                 cherrypy.response.headers['Last-Modified'] = last_modified
                 cherrypy.lib.cptools.validate_since()
@@ -320,27 +310,30 @@ class AppDnsRulesController:
             if ("dnsRuleId" in new_rec):
                 del new_rec["dnsRuleId"]
 
+            # Update the DNS rule in the database with the new "lastModified" date
+            # and add it to the response
             new_date = cherrypy.response.headers['Date']
             cherrypy.thread_data.db.update("dnsRules",
                                             query=dns_rule_query,
                                             newdata=new_rec|{"lastModified": new_date})
-            
+            cherrypy.response.headers['Last-Modified'] = new_date
+
+            """
             diff = DeepDiff(new_rec, dns_rule_dict, ignore_order=True)
             cherrypy.log("Dns Rule %s from app %s updated:\n%s"
                         %(dnsRuleId, appInstanceId, diff))
+            """
 
-            cherrypy.response.status = 200
+            # Return the updated DNS rule in the response body
             dns_rule_dict.update(new_rec)
-
             cherrypy.response.body = dns_rule_dict
 
-            cherrypy.response.headers['Last-Modified'] = cherrypy.response.headers['Date']
-
+            # Generate the new ETag and add it to the response headers
             new_rule = json.dumps(dns_rule_dict)
             new_etag = md5(new_rule.encode('utf-8')).hexdigest()
-            print(f"\nPOST new_etag: {new_etag}")
             cherrypy.response.headers['ETag'] = new_etag
             
+            cherrypy.response.status = 200
             
             return dns_rule_dict
 

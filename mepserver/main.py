@@ -13,7 +13,7 @@
 #     limitations under the License.
 
 # Service Management Controllers
-from mp1.service_mgmt.controllers.app_service_subscriptions_controller                  \
+from mp1.service_mgmt.controllers.app_service_subscriptions_controller          \
     import (ApplicationServicesSubscriptionsController,)
 from mp1.service_mgmt.controllers.app_services_controller                       \
     import (ApplicationServicesController,)
@@ -467,13 +467,14 @@ if __name__ == "__main__":
     dnsApiServer = DnsApiServer(dns_api_addr, dns_api_port)
     cherrypy.config.update({"dns_api_server": dnsApiServer})
 
-
+    """
     HOST = os.environ.get("DNS_SERVER_HOST")
     PORT = os.environ.get("DNS_SERVER_PORT")
     ZONE = os.environ.get("DNS_SERVER_ZONE")
 
     DNS = dict(dnsHost=HOST, dnsPort=PORT, dnsZone=ZONE)
-
+    
     cherrypy.config.update({"dns": DNS})
+    """
     
     main(database)
