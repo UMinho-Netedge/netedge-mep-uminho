@@ -39,10 +39,6 @@ from mp1.application_support.controllers.app_subscriptions_controller           
     import (ApplicationSubscriptionsController)
 
 
-# MEC Platform Management Controllers
-from mm5.mepm_controller import MecPlatformMgMtController
-
-
 from mp1.databases.database_base import DatabaseBase
 from mp1.databases.dbmongo import MongoDb
 from typing import Type
@@ -327,78 +323,6 @@ def main(database: Type[DatabaseBase]):
         conditions=dict(method=["PATCH"]),
     )
 
-#############################################################################
-
-    #############################################
-    # MEC Platform Management interfaces (mm5) #
-    #############################################
-    mepm_dispatcher = cherrypy.dispatch.RoutesDispatcher()
-
-    mepm_dispatcher.connect(
-        name="Configure MEC App instance on start-up",
-        action="mecApp_configure",
-        controller=MecPlatformMgMtController,
-        route="/applications/:appInstanceId/configure",
-        conditions=dict(mecthod=["POST"]),
-    )
-
-    mepm_dispatcher.connect(
-        name="Update MEC App instance Status",
-        action="mecApp_updateState",
-        controller=MecPlatformMgMtController,
-        route="/applications/:appInstanceId/update_state",
-        conditions=dict(method=["POST"]),
-    )
-
-    mepm_dispatcher.connect(
-        name="Terminte MEC App instance",
-        action="mecApp_terminate",
-        controller=MecPlatformMgMtController,
-        route="/applications/:appInstanceId/terminate",
-        conditions=dict(method=["POST"]),
-    )
-
-    mepm_dispatcher.connect(
-        name="Query LCM Operation",
-        action="lcmOpp_get",
-        controller=MecPlatformMgMtController,
-        route="/app_lcm_op_occs/:appLcmOpOccId",
-        conditions=dict(method=["GET"]),
-    )
-
-    mepm_dispatcher.connect(
-        name="Post MEC App Dns Rule",
-        action="dns_rule_post_with_dns_rule_id",
-        controller=MecPlatformMgMtController,
-        route="/applications/:appInstanceId/dns_rule/:dnsRuleId",
-        conditions=dict(method=["POST"]),
-    )
-
-    mepm_dispatcher.connect(
-        name="Post MEC App Dns Rules",
-        action="dns_rules_post",
-        controller=MecPlatformMgMtController,
-        route="/applications/:appInstanceId/dns_rules/",
-        conditions=dict(method=["POST"]),
-    )
-
-    mepm_dispatcher.connect(
-        name="Post MEC App Traffic Rule",
-        action="traffic_rule_post_with_traffic_rule_id",
-        controller=MecPlatformMgMtController,
-        route="/applications/:appInstanceId/traffic_rule/:trafficRuleId",
-        conditions=dict(method=["POST"]),
-    )
-
-    mepm_dispatcher.connect(
-        name="Post MEC App Traffic Rules",
-        action="traffic_rules_post",
-        controller=MecPlatformMgMtController,
-        route="/applications/:appInstanceId/traffic_rules/",
-        conditions=dict(method=["POST"]),
-    )
-
-    ############################################################################
 
     cherrypy.config.update(
         {"server.socket_host": "0.0.0.0", "server.socket_port": 8080}
@@ -409,15 +333,13 @@ def main(database: Type[DatabaseBase]):
     mgmt_conf = {"/": {"request.dispatch": mgmt_dispatcher}}
     cherrypy.tree.mount(None, "/mec_service_mgmt/v1", config=mgmt_conf)
 
-    # MEPM config (mm5 - extra mp1)
-    mecpm_conf = {"/": {"request.dispatch": mepm_dispatcher}}
-    cherrypy.tree.mount(None, "/mec_platform_mgmt/v1", config=mecpm_conf)
 
 
     # Config 404 and 403 landing pages
     cherrypy.config.update({'error_page.404': error_page_404})
     cherrypy.config.update({'error_page.403': error_page_403})
     cherrypy.config.update({'error_page.400': error_page_400})
+
 
     ######################################
     # Database Connection to all threads #
@@ -468,15 +390,5 @@ if __name__ == "__main__":
     dns_api_port = os.environ.get("DNS_API_PORT")
     dnsApiServer = DnsApiServer(dns_api_addr, dns_api_port)
     cherrypy.config.update({"dns_api_server": dnsApiServer})
-
-    """
-    HOST = os.environ.get("DNS_SERVER_HOST")
-    PORT = os.environ.get("DNS_SERVER_PORT")
-    ZONE = os.environ.get("DNS_SERVER_ZONE")
-
-    DNS = dict(dnsHost=HOST, dnsPort=PORT, dnsZone=ZONE)
-    
-    cherrypy.config.update({"dns": DNS})
-    """
     
     main(database)

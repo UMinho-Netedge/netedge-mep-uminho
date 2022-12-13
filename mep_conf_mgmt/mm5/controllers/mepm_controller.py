@@ -2,11 +2,11 @@ import sys
 import jsonschema
 from urllib import request, parse
 sys.path.append("../../")
-from mp1.models import *
+from mm5.models import *
 from hashlib import md5
 from datetime import datetime
 import uuid
-from mp1.application_support.controllers.app_callback_controller import *
+from mm5.controllers.app_callback_controller import *
 import base64
 
 class MecPlatformMgMtController:
@@ -26,7 +26,7 @@ class MecPlatformMgMtController:
 
         # If app exists in db return error
         if appStatus is not None:
-            error_msg = "Application %s already existis." % (appInstanceId)
+            error_msg = "Application %s already exists." % (appInstanceId)
             error = Conflict(error_msg)
             return error.message()
 
@@ -36,12 +36,13 @@ class MecPlatformMgMtController:
             token = oauth.get_token(credentials["client_id"], credentials["client_secret"])
             credentials["access_token"] = token
             secret = dict(access_token=base64.b64encode(token.encode('ascii')).decode('ascii'))
-
+            
             CallbackController.execute_callback(
                 args=[appInstanceId, secret],
                 func=CallbackController._create_secret,
                 sleep_time=0
             )
+            
                     
         except:
             error_msg = "OAuth server is not available, please try again in a few minutes."
@@ -120,6 +121,7 @@ class MecPlatformMgMtController:
 
         cherrypy.response.status = 201
         return dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId)
+
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
@@ -211,6 +213,7 @@ class MecPlatformMgMtController:
         cherrypy.thread_data.db.create("lcmOperations", lcmOperationOccurence)
        
         return dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId)
+
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
@@ -423,8 +426,6 @@ class MecPlatformMgMtController:
         return None
 
 
-
-
     @json_out(cls=NestedEncoder)
     def lcmOpp_get(self, appLcmOpOccId:str, **kwargs):
 
@@ -447,7 +448,6 @@ class MecPlatformMgMtController:
             error = NotFound("No LCM operation found with the given id")
             return error.message()
         return result
-
 
 
     @cherrypy.tools.json_in()
@@ -514,6 +514,7 @@ class MecPlatformMgMtController:
             appInstanceId, appStatus["indication"])
             error = Forbidden(error_msg)
             return error.message()
+
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
@@ -585,6 +586,7 @@ class MecPlatformMgMtController:
             appInstanceId, appStatus["indication"])
             error = Forbidden(error_msg)
             return error.message()
+
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)

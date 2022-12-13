@@ -12,15 +12,11 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-version: "3.9"
+version: "3.10"
 
 services:
   mepserver:
-      image: vinicf/netedge-mepserver:0.2.0
-      # image: python:3.9
-      # command: bash -c "useradd -m -d /home/netedge netedge && apt update && pip install -r /home/netedge/requirements.txt && python3 /home/netedge/main.py --mongodb_database mep"
-      # volumes:
-      #   - ./:/home/netedge
+      image: jnbastos/mep:0.0.2
       ports:
         - "8080:8080"
       environment:
@@ -37,7 +33,7 @@ services:
         DNS_API_PORT: "8082"
 
   mep_mm5:
-      image: jnbastos/mm5:0.0.3
+      image: jnbastos/mm5:0.0.4
       ports:
         - "8085:8085"
       environment:

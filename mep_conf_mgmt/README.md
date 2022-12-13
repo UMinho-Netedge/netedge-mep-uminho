@@ -1,0 +1,2 @@
+# MM5 reference point
+The Mm5 reference point between the MEC platform manager and the MEC platform is used to perform platform configuration, configuration of the application rules and requirements, application lifecycle support procedures, management of application relocation, etc.
