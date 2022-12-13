@@ -89,8 +89,9 @@ class ApplicationConfirmationController:
     
 
     @cherrypy.tools.json_in()
+    @json_out(cls=NestedEncoder)
     @limits(calls=ATTEMPT_LIM, period=TIME_RESET)
-    def application_confirm_ready(self, appInstanceId: str):
+    def application_confirm_ready(self, appInstanceId: str, **kwargs):
         """
         This method may be used by the MEC application instance to notify the MEC platform that it is up and running.
         :param appInstanceId: Represents a MEC application instance. Note that the appInstanceId is allocated by the MEC platform manager.
@@ -109,51 +110,46 @@ class ApplicationConfirmationController:
             error_msg = "Application %s does not exist." % (appInstanceId)
             error = NotFound(error_msg)
             return error.message()
-        
+
         # Create AppReadyConfirmation from json to validate the input
-        appConfirmReady = AppReadyConfirmation.from_json(cherrypy.request.json)
-        cherrypy.log(appConfirmReady.indication.name)
+        try:
+            appConfirmReady = AppReadyConfirmation.from_json(cherrypy.request.json)
+        except (TypeError, jsonschema.exceptions.ValidationError) as e:
+            error = BadRequest(e)
+            return error.message()  
+        
 
-        if appConfirmReady.indication == IndicationType.READY:
-            # Before attempting to insert data into the collection check if the app hasn't already registered itself
-            if (cherrypy.thread_data.db.count_documents(
-                    "appStatus", dict(appInstanceId=appInstanceId)) > 0 ):
-                # TODO CAN'T STORE BECAUSE APPINSTANCE ID ALREADY EXISTS
-                appStatus = cherrypy.thread_data.db.query_col(
-                    "appStatus",
-                    query=dict(appInstanceId=appInstanceId),
-                    find_one=True)
+        # TODO: validate client credentials
+        access_token = kwargs["access_token"]
+        if access_token is None:
+            error_msg = "No access token provided."
+            error = Unauthorized(error_msg)
+            return error.message()
+        
+        oauth = cherrypy.config.get("oauth_server")
+        if oauth.validate_token(access_token) is False:
+            error_msg = "Invalid access token."
+            error = Forbidden(error_msg)
+            return error.message()
 
-                if appStatus['indication'] == IndicationType.READY.name:
-                    #error_msg = "Application %s is in %s state. This operation not allowed in this state." % (
-                    #appInstanceId, appStatus["indication"])
-                    #error = Forbidden(error_msg)
-                    cherrypy.response.status = 204
-                    #return error.message()
-                    return None
-                else:
-                    appInstanceDict = dict(appInstanceId=appInstanceId)
-                    appStatusDict = dict(
-                        {"indication": IndicationType.READY.name})
+        # Before attempting to insert data into the collection check if the app hasn't already registered itself
+        if appStatus['indication'] == IndicationType.READY.name:
+            #error_msg = "Application %s is in %s state. This operation not allowed in this state." % (
+            #appInstanceId, appStatus["indication"])
+            #error = Forbidden(error_msg)
+            cherrypy.response.status = 204
+            #return error.message()
+            return None
 
-                    cherrypy.thread_data.db.update("appStatus", appInstanceDict, appStatusDict)
-                    cherrypy.response.status = 204
-                    return None
-            else:
-                # Create a dict to be saved in the database
-                appStatusDict = dict(
-                    appInstanceId=appInstanceId, **appConfirmReady.to_json()
-                )
-
-                appStatusDict = appStatusDict | {"services":[]}
-                # Indication is still and object and not the value
-                # We could use the json_out internal function but it is overkill for this instance
-                appStatusDict["indication"] = appStatusDict["indication"].name
-                cherrypy.thread_data.db.create("appStatus", appStatusDict)
-                # Set header to 204 - No Content
-                cherrypy.response.status = 204
-                return None
-
+        else:
+            appInstanceDict = dict(appInstanceId=appInstanceId)
+            appStatusDict = dict({"indication": IndicationType.READY.name})
+            cherrypy.thread_data.db.update("appStatus", appInstanceDict, appStatusDict)
+            appInstanceDict = dict(appInstanceId=appInstanceId, operation="STARTING")
+            lcmOperationStatusDict = dict({"operationStatus": OperationStatus.SUCCESSFULLY_DONE.name})
+            cherrypy.thread_data.db.update("lcmOperations", appInstanceDict, lcmOperationStatusDict)
+            cherrypy.response.status = 204
+            return None
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)

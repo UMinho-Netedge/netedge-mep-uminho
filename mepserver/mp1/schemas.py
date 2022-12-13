@@ -228,7 +228,9 @@ serviceinfo_schema = {
 
 appreadyconfirmation_schema = {
     "type": "object",
-    "properties": {"indication": {"type": "string"}},
+    "properties": {
+        "indication": {"enum": ["READY"]}
+    },
     "required": ["indication"],
     "additionalProperties": False,
 }

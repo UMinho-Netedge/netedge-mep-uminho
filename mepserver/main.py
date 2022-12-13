@@ -428,24 +428,26 @@ def main(database: Type[DatabaseBase]):
     else:
         cherrypy.log("Invalid database provided to MEP. Shutting down.")
 
-
+@json_out(cls=NestedEncoder)
 def error_page_404(status, message, traceback, version):
     error_msg = "URI %s cannot be mapped to a valid resource." % cherrypy.request.path_info
     error = NotFound(error_msg)
-    cherrypy.response.headers["Content-Type"] = "application/problem+json"
-    return json.dumps(error.message().to_json())
+    # cherrypy.response.headers["Content-Type"] = "application/problem+json"
+    return error.message()
 
+@json_out(cls=NestedEncoder)
 def error_page_403(status, message, traceback, version):
     error_msg = "The operation is not allowed given the current status of the resource."
     error = Forbidden(error_msg)
-    cherrypy.response.headers['Content-Type'] = "application/problem+json"
-    return json.dumps(error.message().to_json())
+    # cherrypy.response.headers['Content-Type'] = "application/problem+json"
+    return error.message()
 
+@json_out(cls=NestedEncoder)
 def error_page_400(status, message, traceback, version):
     error_msg = "The operation is not allowed given the current status of the resource."
     error = BadRequest(error_msg)
-    cherrypy.response.headers['Content-Type'] = "application/problem+json"
-    return json.dumps(error.message().to_json())
+    # cherrypy.response.headers['Content-Type'] = "application/problem+json"
+    return error.message()
 
 
 if __name__ == "__main__":

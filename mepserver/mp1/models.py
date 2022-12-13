@@ -1002,6 +1002,7 @@ class Error:
 
     def message(self):
         cherrypy.response.status = self.status
+        cherrypy.response.headers["Content-Type"] = "application/problem+json"
 
         return ProblemDetails(
             type=self.type,
@@ -1023,6 +1024,16 @@ class BadRequest(Error):
             instance=cherrypy.request.path_info
         )
 
+class Unauthorized(Error):
+    def __init__(self, detail : str = "The client did not submit the appropriate credentials."):
+        Error.__init__(
+            self,
+            type="about:blank",
+            title="The client did not submit the appropriate credentials.",
+            status=401,
+            detail=detail,
+            instance=cherrypy.request.path_info
+        )
 
 class Forbidden(Error):
     def __init__(self, detail : str = "This operation not allowed"):
@@ -1698,8 +1709,8 @@ class OAuthServer:
         return False
     
     def validate_token(self, access_token:str):
-        data = dict(access_token=access_token)
-        response = requests.post("http://%s:%s/validate_token" %(self.url, self.port), json=data)
+        #data = dict(access_token=access_token)
+        response = requests.post("http://%s:%s/validate_token?access_token=%s" %(self.url, self.port,access_token))
         return response.status_code == 200
     
     def delete_client(self, client_id:str, client_secret:str):
