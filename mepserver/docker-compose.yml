@@ -12,7 +12,7 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-version: "3.8"
+version: "3.9"
 
 services:
   mepserver:
@@ -23,6 +23,23 @@ services:
       #   - ./:/home/netedge
       ports:
         - "8080:8080"
+      environment:
+        USER: netedge
+        PATH: "$PATH:/home/netedge/.local/bin"
+        ME_CONFIG_MONGODB_SERVER: "mongodb"
+        ME_CONFIG_MONGODB_PORT: 27017
+        ME_CONFIG_MONGODB_ADMINUSERNAME: ""
+        ME_CONFIG_MONGODB_ADMINPASSWORD: ""
+        ME_CONFIG_MONGODB_DATABASE: "mep"
+        OAUTH_SERVER: "oauth"
+        OAUTH_PORT: "5001"
+        DNS_API_SERVER: "dns_api"
+        DNS_API_PORT: "8082"
+
+  mep_mm5:
+      image: jnbastos/mm5:0.0.3
+      ports:
+        - "8085:8085"
       environment:
         USER: netedge
         PATH: "$PATH:/home/netedge/.local/bin"
