@@ -14,7 +14,7 @@
 
 FROM python:3.9
 
-LABEL org.opencontainers.image.source="https://github.com/UMinho-Netedge/netedge-mep-uminho/"
+LABEL org.opencontainers.image.source="https://github.com/UMinho-Netedge/netedge-mep-uminho/mec_app_com"
 
 RUN useradd -m -d /home/netedge netedge
 RUN ["apt-get", "update"]

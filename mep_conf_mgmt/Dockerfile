@@ -12,9 +12,10 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
+
 FROM python:3.9
 
-LABEL org.opencontainers.image.source="https://github.com/UMinho-Netedge/netedge-mm5/"
+LABEL org.opencontainers.image.source="https://github.com/UMinho-Netedge/netedge-mep-uminho/mep_conf_mgmt"
 
 RUN useradd -m -d /home/netedge netedge
 RUN ["apt-get", "update"]

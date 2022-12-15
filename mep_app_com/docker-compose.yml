@@ -12,11 +12,11 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-version: "3.10"
+version: "3.11"
 
 services:
   mepserver:
-      image: jnbastos/mep:0.0.2
+      image: uminhonetedge/mep:1.0.0
       ports:
         - "8080:8080"
       environment:
@@ -33,7 +33,7 @@ services:
         DNS_API_PORT: "8082"
 
   mep_mm5:
-      image: jnbastos/mm5:0.0.4
+      image: uminhonetedge/mm5:1.0.0
       ports:
         - "8085:8085"
       environment:
@@ -72,7 +72,7 @@ services:
         ME_CONFIG_MONGODB_ADMINPASSWORD: ""
 
   dns_api:
-    image: jnbastos/coredns_api:1.3
+    image: uminhonetedge/coredns_api:1.0.0
     volumes:
       - ./coredns:/tmp/coredns
     ports:

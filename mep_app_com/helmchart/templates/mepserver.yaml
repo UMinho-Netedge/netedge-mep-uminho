@@ -33,7 +33,7 @@ spec:
       serviceAccountName: mepserver
       automountServiceAccountToken: true
       containers:
-        - image: vinicf/netedge-mepserver:0.2.30
+        - image: uminhonetedge/mep:1.0.0
           name: mepserver
           ports:
             - containerPort: 8080
