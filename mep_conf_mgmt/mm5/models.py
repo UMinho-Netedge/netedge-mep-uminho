@@ -182,10 +182,16 @@ class CategoryRef:
         self.name = name
         self.version = version
 
+    @staticmethod
+    def from_json(data: dict) -> CategoryRef:
+        validate(instance=data, schema=categoryref_schema)
+        return CategoryRef(**data)
+
     def to_json(self):
         # All required none should have value none thus there is no need to use ignore_none_val
         return dict(href=self.href, id=self.id, name=self.name, version=self.version)
 
+    
 
 class FilteringCriteria:
     def __init__(
@@ -960,6 +966,7 @@ class AppTerminationNotificationSubscription:
             appInstanceId=appInstanceId,
             subscriptionType=subscriptionType
             )
+
     def to_json(self):
         return ignore_none_value(
             dict(
@@ -1154,6 +1161,7 @@ class TrafficFilter:
                                       srcTunnelPort = self.srcTunnelPort, dstTunnelPort = self.dstTunnelPort,
                                       qCI = self.qCI, dSCP = self.dSCP, tC = self.tC))
 
+
 class TunnelInfo:
 
     def __init__(self, tunnelType: str, tunnelDstAddress: str,
@@ -1217,7 +1225,6 @@ class DestinationInterface:
                                       dstMacAddress = self.dstMacAddress, dstIpAddress = self.dstIpAddress) )
 
 
-
 class TrafficRule:
     def __init__(self, 
                  trafficRuleId: str, 
@@ -1271,8 +1278,7 @@ class TrafficRule:
         networkpolicy = dict(ingress=[self.getIngress()], egress=[self.getEgress()])
         # cherrypy.log(json.dumps(networkpolicy))
         return networkpolicy
-        
-    
+           
     def getIngress(self):
         addresses = []
         for filter in self.trafficFilter:
@@ -1287,7 +1293,6 @@ class TrafficRule:
                 _ports.append({"port": int(port)})
         
         return {"from":_from, "ports":_ports}
-
 
     def getEgress(self):
         addresses = []
@@ -1312,6 +1317,7 @@ class CurrentTime:
     
     def to_json(self):
         return ignore_none_value(dict(seconds = self.seconds, nanoseconds = self.nanoseconds, timeSourceStatus = self.timeSourceStatus) )
+
 
 class TimingCaps:
     def __init__(self, 
@@ -1339,6 +1345,7 @@ class ntpServer:
      self.authenticationOption = authenticationOption
      self.authenticationKeyNum = authenticationKeyNum
 
+
 class ptpMaster:
     def __init__(self, ptpMasterIpAddress: string, ptpMasterLocalPriority: int, delayReqMaxRate: int):
         self.ptpMasterIpAddress = ptpMasterIpAddress
@@ -1349,12 +1356,14 @@ class ptpMaster:
         return ignore_none_value(dict(ptpMasterIpAddress = self.ptpMasterIpAddress, ptpMasterLocalPriority = self.ptpMasterLocalPriority, 
         delayReqMaxRate = self.delayReqMaxRate) )
 
+
 class TimeStamp:
     def __init__(self, seconds: int, nanoseconds: int):
         self.seconds = seconds
         self.nanoseconds = nanoseconds
     def to_json(self):
         return ignore_none_value(dict(seconds = self.seconds, nanoseconds = self.nanoseconds))
+
 
 class ServiceLivenessInfo:
     def __init__(self, state: ServiceState, timeStamp: TimeStamp, interval: int):
@@ -1378,9 +1387,9 @@ class ServiceLivenessInfo:
 
         return ServiceLivenessInfo(state, timeStamp, interval)
 
-
     def to_json(self):
         return ignore_none_value(dict(state = self.state, timeStamp = self.timeStamp, interval = self.interval))
+
 
 class ServiceLivenessUpdate:
     def __init__(self, state: ServiceState):
@@ -1395,30 +1404,196 @@ class ServiceLivenessUpdate:
 
         return ServiceLivenessUpdate(state)
 
-
     def to_json(self):
         return ignore_none_value(dict(state = self.state))
 
-
-
-################################ MM5 data types #######################################
+##############################################################################
+############################    MM5 DATA TYPES    ############################
+##############################################################################
 # MEC 010v2 6.2.2.21
 
-class ServiceDependency:
-    def __init__(self) -> None:
-        pass
 
+# New
+class TransportDescriptor:
+    """
+    The TransportDescriptor data type describes a transport.
+
+    Section 6.2.1.19 of MEC010-2
+    """
+    def __init__(
+        self,
+        name: str,
+        type: TransportType,
+        version: str,
+        security: SecurityInfo,
+        description: str = "",
+        protocol: str = "HTTP",
+        implSpecificInfo: str = ""):
+        """
+        :param name: Name of this transport.
+        :param description: Human-readable description of this transport.
+        :param type: Type of transport.
+        :param protocol: The name of the protocol used.
+        :param version: The version of the protocol used.
+        :param security: Information about the security used by the transport.
+        :param implSpecificInfo: Additional implementation specific details of the transport.
+        """
+
+        self.name = name
+        self.description = description
+        self.type = type
+        self.protocol = protocol
+        self.version = version
+        self.security = security
+        self.implSpecificInfo = implSpecificInfo
+
+    @staticmethod
+    def from_json(data: dict) -> TransportDescriptor:
+        # First validate the json via jsonschema
+        validate(instance=data, schema=transportDescriptor_schema)
+
+        name = data.pop("name")
+        description = data.pop("description", None)
+        type = TransportType(data.pop("type"))
+
+        # Always "HTTP" since is a REST API? TODO: Check this
+        protocol = data.pop("protocol")
+        version = data.pop("version")
+        security = SecurityInfo.from_json(data.pop("security"))
+        implSpecificInfo = data.pop("implSpecificInfo", None)
+
+        return TransportDescriptor(name, description, type, protocol, version, security, implSpecificInfo)
+
+
+# New
 class ServiceDescriptor:
-    def __init__(self) -> None:
-        pass
+    def __init__(
+        self,
+        serName: str = None,
+        serCategory: CategoryRef = None,
+        version: str = None,
+        transportsSupported: List[str] = None,
+        transport: TransportDescriptor = None,
+        serializers: List[SerializerType] = None
+        ):
+        """
+        :param serName: Name of the service.
+        :param serCategory: A Category reference of the service, defined in ETSI GS MEC 011
+        :param version: Version of the service.
+        :param transportsSupported: Indicates transports and serialization formats supported made available to the service-consuming application. Defaults to REST + JSON if absent.
+        :param transport: Information about the transport in this binding.
+        :param serializers: Information about the serializers in this binding, as defined in the SerializerType type in ETSI GS MEC 011
+        """
+        self.serName = serName
+        self.serCategory = serCategory
+        self.version = version
+        self.transportsSupported = transportsSupported
+        self.transport = transport
+        self.serializers = serializers
+
 
 class FeatureDependency:
     def __init__(self) -> None:
         pass
 
+
+# New
 class TransportDependency:
-    def __init__(self) -> None:
-        pass
+    """
+    The TransportDependency data type supports the specification of requirements
+    of a MEC application related to supported transport bindings (each being a 
+    combination of a transport with one or more serializers).
+
+    6.2.1.18 of MEC 010-2
+    """
+    def __init__(
+        self,
+        transport: TransportDescriptor,
+        serializers: List[SerializerType],
+        labels: List[str],
+        ):
+        """
+        :param transport: Information about the transport in this transport binding.
+        :param serializers: Information about the serializers in this transport binding.
+        :param labels: Set of labels that allow to define groups of transport bindings.
+        """
+        self.transport = transport
+        self.serializers = serializers
+        self.labels = labels
+
+    @staticmethod
+    def from_json(data: dict) -> TransportDependency:
+        # First validate the json via jsonschema
+        validate(instance=data, schema=transportDependency_schema)
+
+        transport = TransportDescriptor.from_json(data.pop("transport"))
+        serializers = [SerializerType(s) for s in data.pop("serializers")]
+        labels = data.pop("labels")
+
+        return TransportDependency(transport, serializers, labels)
+
+
+# New
+class ServiceDependency:
+    """
+    The ServiceDependency data type supports the specification of requirements 
+    of a service-consuming MEC application related to a MEC service.
+    
+    Section 6.2.1.17 of MEC 010-2
+    """
+    def __init__(
+        self, 
+        serName: str, 
+        version: str,  
+        serCategory: CategoryRef = None,
+        serTransportDependencies: TransportDependency = None, 
+        requestedPermissions: List[str] = None):
+        """
+        :param serName: Name of the service.
+        :param serCategory: A Category reference of the service.
+        :param version: Version of the service.
+        :param serTransportDependencies: Indicates transport and serialization format dependencies of consuming the service. Defaults to REST + JSON if absent.
+        :param requestedPermissions: Requested permissions regarding the access of the application to the service.
+        """
+
+        self.serName = serName
+        self.serCategory = serCategory
+        self.version = version
+        self.serTransportDependencies = serTransportDependencies
+        self.requestedPermissions = requestedPermissions
+
+    def to_json(self):
+        return ignore_none_value(dict(
+            serName = self.serName,
+            serCategory = self.serCategory,
+            version = self.version,
+            serTransportDependencies = self.serTransportDependencies,
+            requestedPermissions = self.requestedPermissions
+        ))
+    
+    @staticmethod
+    def from_json(data: dict) -> ServiceDependency:
+        # First validate the json via jsonschema
+        validate(instance=data, schema=serviceDependency_schema)
+
+        serName = data.pop("serName")
+        serCategory = data.pop("serCategory", None)
+        
+        if serCategory is not None:
+            serCategory = CategoryRef(**serCategory)
+       
+        version = data.pop("version")
+        
+        serTransportDependencies = data.pop("serTransportDependencies", None)
+        if serTransportDependencies is not None:
+            serTransportDependencies = [TransportDependency.from_json(td) for td in serTransportDependencies]
+        else:
+            serTransportDependencies = [TransportDependency(TransportType.REST, "application/json")]
+
+        requestedPermissions = data.pop("requestedPermissions", None)             
+
+        return ServiceDependency(serName, serCategory, version, serTransportDependencies, requestedPermissions)
+
 
 class TrafficRuleDescriptor:
     def __init__(self, trafficRule: TrafficRule):
@@ -1433,6 +1608,8 @@ class TrafficRuleDescriptor:
         trafficRuleDescriptor = self.trafficRule.to_json()
         trafficRuleDescriptor.pop("state")
         return trafficRuleDescriptor
+
+
 class DNSRuleDescriptor:
     def __init__(self, dnsRule: DnsRule):
         self.dnsRule = dnsRule
@@ -1447,38 +1624,64 @@ class DNSRuleDescriptor:
         dnsDescriptor.pop("state")
         return dnsDescriptor
 
+
 class LatencyDescriptor:
     def __init__(self) -> None:
         pass
+
     def from_json():
         pass
+
 
 class UserContextTransferCapility:
     def __init__(self) -> None:
         pass
+
     def from_json():
         pass
+
 
 class AppNetworkPolicy:
     def __init__(self) -> None:
         pass
+
     def from_json():
         pass
 
+
 class ConfigPlatformForAppRequest:
-    def __init__(self, 
-    appServiceRequired: List(ServiceDependency) = None,
-    appServiceOptional: List(ServiceDependency) = None,
-    appServiceProduced: List(ServiceDescriptor) = None,
-    appFeatureRequired: List(FeatureDependency) = None,
-    appFeatureOptional: List(FeatureDependency) = None,
-    transportDependencies: List(TransportDependency) = None,
-    appTrafficRule: List(TrafficRuleDescriptor) = None,
-    appDNSRule: List(DNSRuleDescriptor) = None,
-    appLatency: LatencyDescriptor = None,
-    userContextTransferCapability: UserContextTransferCapility = None,
-    appNetworkPolicy: AppNetworkPolicy = None
-    ):
+    """
+    This data type represents the parameters for configuring the MEP to run an application instance.
+
+    Section 6.2.2.21 - MEC 010-2
+    """
+    def __init__(
+        self, 
+        appServiceRequired: List(ServiceDependency) = None,
+        appServiceOptional: List(ServiceDependency) = None,
+        appServiceProduced: List(ServiceDescriptor) = None,
+        appFeatureRequired: List(FeatureDependency) = None,
+        appFeatureOptional: List(FeatureDependency) = None,
+        transportDependencies: List(TransportDependency) = None,
+        appTrafficRule: List(TrafficRuleDescriptor) = None,
+        appDNSRule: List(DNSRuleDescriptor) = None,
+        appLatency: LatencyDescriptor = None,
+        userContextTransferCapability: UserContextTransferCapility = None,
+        appNetworkPolicy: AppNetworkPolicy = None,
+        ):
+        """
+        :param appServiceRequired: Describes services a MEC application requires to run.
+        :param appServiceOptional: Describes services a MEC application may use if available.
+        :param appServiceProduced: Describes services a MEC application is able to produce to the platform or other MEC applications. Only relevant for service-producing apps.
+        :param appFeatureRequired: Describes features a MEC application requires to run.
+        :param appFeatureOptional: Describes features a MEC application may use if available.
+        :param transportDependencies: Transports, if any, that this application requires to be provided by the platform. These transports will be used by the application to deliver services provided by this application. Only relevant for service-producing apps.
+        :param appTrafficRule: Describes traffic rules a MEC application requires.
+        :param appDNSRule: Describes DNS rules a MEC application requires.
+        :param appLatency: Describes the maximum latency tolerated by the MEC application.
+        :param userContextTransferCapability: Describes the user context transfer capability of the MEC application. If the application supports the user context transfer capability, this attribute shall be included.
+        :param appNetworkPolicy: If present, it represents the application network policy of carrying the application traffic.
+        """
         self.appServiceRequired = appServiceRequired
         self.appServiceOptional = appServiceOptional
         self.appServiceProduced = appServiceProduced
@@ -1594,6 +1797,7 @@ class ConfigPlatformForAppRequest:
             )
         )
 
+
 class ChangeAppInstanceState:
     def __init__(self, appInstanceId: str, changeStateTo: ChangeStateTo, stopType: StopType = None, gracefulStopTimeout: int = None) -> None:
         self.appInstanceId = appInstanceId
@@ -1624,6 +1828,7 @@ class ChangeAppInstanceState:
                 gracefulStopTimeout=self.gracefulStopTimeout
             )
         )
+
 
 class TerminateAppInstance:
     def __init__(self, appInstanceId: str, terminationType: TerminationType, gracefulStopTimeout: int) -> None:
@@ -1656,7 +1861,6 @@ class TerminateAppInstance:
         )
 
 
-
 class AppInstanceState:
     def __init__(self, instantiationState: InstantiationState, operationalState: OperationalState = None):
         self.instantiationState = instantiationState
@@ -1686,8 +1890,7 @@ class OAuthServer:
             return response
         
         return False
-        
-    
+            
     def get_token(self, client_id:str, client_secret:str):
         credentials = dict(grant_type="client_credentials", client_id=client_id, client_secret=client_secret)
         response = requests.post("http://%s:%s/token" %(self.url, self.port), json=credentials)
@@ -1706,6 +1909,7 @@ class OAuthServer:
         credentials = dict(client_id=client_id, client_secret=client_secret)
         response = requests.post("http://%s:%s/delete" %(self.url, self.port), json=credentials)        
         return response.status_code == 200
+
 
 class DnsApiServer:
     def __init__(self, url: str, port: str, zone: str = "zone0") -> None:

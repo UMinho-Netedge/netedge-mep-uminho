@@ -608,3 +608,65 @@ terminateAppInstance_schema = {
     "required": ["appInstanceId", "terminationType"],
     "aditionalProperties": False,
 }
+
+# New schemas for MM5 and MM3*
+
+transportDescriptor_schema = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "type": {
+            "enum": [
+                "REST_HTTP",
+                "MB_TOPIC_BASED",
+                "MB_ROUTING",
+                "MB_PUBSUB",
+                "RPC",
+                "RPC_STREAMING",
+                "WEB_SOCKET"
+            ]
+        },
+        "protocol": {"type": "string"},
+        "version": {"type": "string"},
+        "security": securityinfo_schema,
+        "implSpecificInfo": {"type": "string"}
+    },
+    "required": ["name", "type", "protocol", "version", "security"],
+    "additionalProperties": False,
+}
+
+
+transportDependency_schema = {
+    "type": "object",
+    "properties": {
+        "transport": transportDescriptor_schema,
+        "serializers": {
+            "type": "array",
+            "items": {
+                "enum": [
+                    "JSON",
+                    "XML",
+                    "PROTOBUF3"
+                ]
+            }
+        },
+        "labels": {"type": "array", "items": {"type": "string"}}
+    },
+    "required": ["transport", "serializers", "labels"],
+    "additionalProperties": False,
+}
+
+
+serviceDependency_schema = {
+    "type": "object",
+    "properties": {
+        "serName": {"type": "string"},
+        "serCategory": categoryref_schema,
+        "version": {"type": "string"},
+        "serTransportDependencies": {"type": "array", "items": transportDependency_schema},
+        "requestedPermissions": {"type": "array", "items": {"type": "string"}}
+    },
+    "required": ["serName", "version"],
+    "additionalProperties": False,
+}
