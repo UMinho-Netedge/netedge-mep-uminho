@@ -134,7 +134,7 @@ class ApplicationServicesController:
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
-    def applications_services_post(self, appInstanceId: str):
+    def applications_services_post(self, appInstanceId: str, **kwargs):
         """
         This method is used to create a mecService resource. This method is typically used in "service availability update and new service registration" procedure
         :param appInstanceId: Represents a MEC application instance. Note that the appInstanceId is allocated by the MEC platform manager.
@@ -142,6 +142,30 @@ class ApplicationServicesController:
         :return: ServiceInfo or ProblemDetails
         HTTP STATUS CODE: 201, 400, 403, 404
         """
+
+        # Validate token
+        # TODO: When OAuth gets updated one should request, when it's a new 
+        # service, a request body with correspondent parameters to check if this
+        # app have permission to subscript notifications
+        try:
+            access_token = kwargs["access_token"]
+        except KeyError:
+            error_msg = "No access token provided."
+            error = Unauthorized(error_msg)
+            return error.message()
+            
+        if access_token is None:
+            error_msg = "No access token provided."
+            error = Unauthorized(error_msg)
+            return error.message()
+        
+        oauth = cherrypy.config.get("oauth_server")
+        if oauth.validate_token(access_token) is False:
+            error_msg = "Invalid access token."
+            error = Unauthorized(error_msg)
+            return error.message()
+
+
         # TODO ADD RATE LIMITING OTHERWISE APP CAN CONTINOUSLY GENERATE NEW SERVICES
         # TODO NEEDS TO BE RATE LIMIT SINCE AN APP CAN HAVE N SERVICES
         data = cherrypy.request.json
@@ -391,7 +415,7 @@ class ApplicationServicesController:
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
-    def application_services_put(self, appInstanceId: str, serviceId: str):
+    def application_services_put(self, appInstanceId: str, serviceId: str, **kwargs):
         """
                 This method updates the information about a mecService resource
                 :param appInstanceId: Represents a MEC application instance. Note that the appInstanceId is allocated by the MEC platform manager.
@@ -403,6 +427,28 @@ class ApplicationServicesController:
                 :return: ServiceInfo or ProblemDetails
                 HTTP STATUS CODE: 200, 400, 403, 404, 412
         """
+        # Validate token
+        # TODO: When OAuth gets updated one should request, when it's a new 
+        # service, a request body with correspondent parameters to check if this
+        # app have permission to subscript notifications
+        try:
+            access_token = kwargs["access_token"]
+        except KeyError:
+            error_msg = "No access token provided."
+            error = Unauthorized(error_msg)
+            return error.message()
+            
+        if access_token is None:
+            error_msg = "No access token provided."
+            error = Unauthorized(error_msg)
+            return error.message()
+        
+        oauth = cherrypy.config.get("oauth_server")
+        if oauth.validate_token(access_token) is False:
+            error_msg = "Invalid access token."
+            error = Unauthorized(error_msg)
+            return error.message()
+
         # TODO PUT ONLY NEEDS TO RECEIVE ONE UPDATABLE CRITERIA
         data = cherrypy.request.json
 

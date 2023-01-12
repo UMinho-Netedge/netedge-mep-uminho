@@ -88,8 +88,21 @@ class ApplicationConfirmationController:
                 del ApplicationConfirmationController.attemps_dict[appInstanceId]
     
 
+    def exception_handler(func):
+        def inner_function(*args, **kwargs):
+            try:
+                f = func(*args, **kwargs)
+                return f
+            except RateLimitException:
+                error_msg = "Too many requests have been sent. Try again soon."
+                error = TooManyRequests(error_msg)
+                return error.message()
+        return inner_function
+
+
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
+    @exception_handler
     @limits(calls=ATTEMPT_LIM, period=TIME_RESET)
     def application_confirm_ready(self, appInstanceId: str, **kwargs):
         """
@@ -119,8 +132,14 @@ class ApplicationConfirmationController:
             return error.message()  
         
 
-        # TODO: validate client credentials
-        access_token = kwargs["access_token"]
+        # Validate client credentials
+        try:
+            access_token = kwargs["access_token"]
+        except KeyError:
+            error_msg = "No access token provided."
+            error = Unauthorized(error_msg)
+            return error.message()
+
         if access_token is None:
             error_msg = "No access token provided."
             error = Unauthorized(error_msg)
@@ -129,7 +148,7 @@ class ApplicationConfirmationController:
         oauth = cherrypy.config.get("oauth_server")
         if oauth.validate_token(access_token) is False:
             error_msg = "Invalid access token."
-            error = Forbidden(error_msg)
+            error = Unauthorized(error_msg)
             return error.message()
 
         # Before attempting to insert data into the collection check if the app hasn't already registered itself
@@ -153,7 +172,7 @@ class ApplicationConfirmationController:
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
-    def application_confirm_termination(self, appInstanceId: str):
+    def application_confirm_termination(self, appInstanceId: str, **kwargs):
         """
         This method is used to confirm the application level termination of an application instance.
         :param appInstanceId: Represents a MEC application instance. Note that the appInstanceId is allocated by the MEC platform manager.
@@ -198,6 +217,27 @@ class ApplicationConfirmationController:
             return error.message()
 
         else:
+            # Validate client credentials
+            try:
+                access_token = kwargs["access_token"]
+            except KeyError:
+                error_msg = "No access token provided."
+                error = Unauthorized(error_msg)
+                return error.message()
+
+            if access_token is None:
+                error_msg = "No access token provided."
+                error = Unauthorized(error_msg)
+                return error.message()
+            
+            oauth = cherrypy.config.get("oauth_server")
+            if oauth.validate_token(access_token) is False:
+                error_msg = "Invalid access token."
+                error = Unauthorized(error_msg)
+                return error.message()
+
+
+
             # At this point, in appStatus collection, "indication" has already 
             # been changed to "TERMINATING" or "STOPPING". This attribute must match
             # that sent in AppTerminationConfirmation, raising an error otherwise.

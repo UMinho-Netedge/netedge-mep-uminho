@@ -102,7 +102,7 @@ class ApplicationServicesSubscriptionsController:
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
-    def applications_subscriptions_post(self, appInstanceId: str):
+    def applications_subscriptions_post(self, appInstanceId: str, **kwargs):
         """
         The GET method may be used to request information about all subscriptions for this requestor. Upon success, the response contains entity body with all the subscriptions for the requestor.
 
@@ -127,7 +127,31 @@ class ApplicationServicesSubscriptionsController:
             error = NotFound(error_msg)
             return error.message()
 
+        # Validate token
+        # TODO: When OAuth gets updated one should request, when it's a new 
+        # service, a request body with correspondent parameters to check if this
+        # app have permission to subscript notifications
+        try:
+            access_token = kwargs["access_token"]
+        except KeyError:
+            error_msg = "No access token provided."
+            error = Unauthorized(error_msg)
+            return error.message()
+
+        if access_token is None:
+            error_msg = "No access token provided."
+            error = Unauthorized(error_msg)
+            return error.message()
+        
+        oauth = cherrypy.config.get("oauth_server")
+        if oauth.validate_token(access_token) is False:
+            error_msg = "Invalid access token."
+            error = Unauthorized(error_msg)
+            return error.message()
+
+        # Obtain the request body
         data = cherrypy.request.json
+
         # The process of generating the class allows for "automatic" validation of the json and
         # for filtering after saving to the database
         try:
@@ -211,6 +235,7 @@ class ApplicationServicesSubscriptionsController:
             appInstanceId, appStatus["indication"])
             error = Forbidden(error_msg)
             return error.message()
+
 
     @json_out(cls=NestedEncoder)
     def applications_subscriptions_get_with_subscription_id(
@@ -299,7 +324,7 @@ class ApplicationServicesSubscriptionsController:
 
     @json_out(cls=NestedEncoder)
     def applications_subscriptions_delete(
-        self, appInstanceId: str, subscriptionId: str
+        self, appInstanceId: str, subscriptionId: str, **kwargs
     ):
         """
         This method deletes a mecSrvMgmtSubscription. This method is typically used in "Unsubscribing from service availability event notifications" procedure.
@@ -312,6 +337,25 @@ class ApplicationServicesSubscriptionsController:
         :return: No Content or ProblemDetails
         HTTP STATUS CODE: 204, 403, 404
         """
+        # Validate token
+        try:
+            access_token = kwargs["access_token"]
+        except KeyError:
+            error_msg = "No access token provided."
+            error = Unauthorized(error_msg)
+            return error.message()
+            
+        if access_token is None:
+            error_msg = "No access token provided."
+            error = Unauthorized(error_msg)
+            return error.message()
+        
+        oauth = cherrypy.config.get("oauth_server")
+        if oauth.validate_token(access_token) is False:
+            error_msg = "Invalid access token."
+            error = Unauthorized(error_msg)
+            return error.message()
+
         appStatus = cherrypy.thread_data.db.query_col(
             "appStatus",
             query=dict(appInstanceId=appInstanceId),
