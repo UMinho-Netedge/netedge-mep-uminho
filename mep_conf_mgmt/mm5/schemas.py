@@ -637,6 +637,26 @@ transportDescriptor_schema = {
 }
 
 
+transports_schema = {
+    "type": "object",
+    "properties": {
+        "transport": transportDescriptor_schema,
+        "serializers": {
+            "type": "array",
+            "items": {
+                "enum": [
+                    "JSON",
+                    "XML",
+                    "PROTOBUF3"
+                ]
+            }
+        }
+    },
+    "required": ["transport", "serializers"],
+    "additionalProperties": False,
+}
+
+
 transportDependency_schema = {
     "type": "object",
     "properties": {
@@ -666,6 +686,63 @@ serviceDependency_schema = {
         "version": {"type": "string"},
         "serTransportDependencies": {"type": "array", "items": transportDependency_schema},
         "requestedPermissions": {"type": "array", "items": {"type": "string"}}
+    },
+    "required": ["serName", "version"],
+    "additionalProperties": False,
+}
+
+
+featureDependency_schema = {
+    "type": "object",
+    "properties": {
+        "featureName": {"type": "string"},
+        "version": {"type": "string"}
+    },
+    "required": ["featureName", "version"],
+    "additionalProperties": False,
+}
+
+
+userContextTransferCapility_schema = {
+    "type": "object",
+    "properties": {
+        "statefulApplication": {"type": "boolean"},
+        "userContextTransferSupport": {"type": "boolean"}
+    },
+    "required": ["statefulApplication"],
+    "additionalProperties": False,
+}
+
+
+steeringPolicy_schema = {
+    "type": "object",
+    "properties": {
+        "cellularNetwork": {"type": "boolean"},
+        "wifiNetwork": {"type": "boolean"},
+        "fixedAccessNetwork": {"type": "boolean"},
+    },
+    "required": [],
+    "additionalProperties": False,
+}
+
+
+appNetworkPolicy_schema = {
+    "type": "object",
+    "properties": {
+        "steeredNetwork": steeringPolicy_schema,
+    },
+    "required": ["steeredNetwork"],
+    "additionalProperties": False,
+}
+
+
+serviceDescriptor_schema = {
+    "type": "object",
+    "properties": {
+        "serName": {"type": "string"},
+        "serCategory": categoryref_schema,
+        "version": {"type": "string"},
+        "transportsSupported": {"type": "array", "items": transports_schema}
     },
     "required": ["serName", "version"],
     "additionalProperties": False,

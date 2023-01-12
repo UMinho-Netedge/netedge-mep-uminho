@@ -471,7 +471,7 @@ class OAuth2Info:
 
 
 class SecurityInfo:
-    def __init__(self, oAuth2Info: OAuth2Info):
+    def __init__(self, oAuth2Info: OAuth2Info = None):
         """
         :param oAuth2Info: Parameters related to use of OAuth 2.0.
         Section 8.1.5.4
@@ -1413,7 +1413,6 @@ class ServiceLivenessUpdate:
 # MEC 010v2 6.2.2.21
 
 
-# New
 class TransportDescriptor:
     """
     The TransportDescriptor data type describes a transport.
@@ -1465,16 +1464,13 @@ class TransportDescriptor:
         return TransportDescriptor(name, description, type, protocol, version, security, implSpecificInfo)
 
 
-# New
 class ServiceDescriptor:
     def __init__(
         self,
         serName: str = None,
         serCategory: CategoryRef = None,
         version: str = None,
-        transportsSupported: List[str] = None,
-        transport: TransportDescriptor = None,
-        serializers: List[SerializerType] = None
+        transportsSupported: List[Transports] = None
         ):
         """
         :param serName: Name of the service.
@@ -1488,16 +1484,65 @@ class ServiceDescriptor:
         self.serCategory = serCategory
         self.version = version
         self.transportsSupported = transportsSupported
-        self.transport = transport
-        self.serializers = serializers
+
+    @staticmethod
+    def from_json(data: dict) -> ServiceDescriptor:
+        validate(instance=data, schema=serviceDescriptor_schema)
+
+        serName = data.pop("serName")
+        serCategory = data.pop("serCategory")
+        version = data.pop("version")
+        transportsSupported = data.pop("transportsSupported")
+
+        return ServiceDescriptor(serName, serCategory, version, transportsSupported)
 
 
 class FeatureDependency:
-    def __init__(self) -> None:
-        pass
+    """
+    The FeatureDependency data type supports the specification of requirements 
+    of a MEC application related to a feature of MEC platform.
+
+    Section 6.2.8 of MEC 010-2
+    """
+    def __init__(self, featureName: str, version: str):
+        """
+        :param featureName: Name of the feature.
+        :param version: Version of the feature.
+        """
+        self.featureName = featureName
+        self.version = version
+
+    @staticmethod
+    def from_json(data: dict) -> FeatureDependency:
+        validate(instance=data, schema=featureDependency_schema)
+
+        return FeatureDependency(data.pop("featureName"), data.pop("version"))
 
 
-# New
+class Transports:
+    def __init__(
+        self,
+        transport: TransportDescriptor,
+        serializers: List[SerializerType],
+        ):
+        """
+        :param transport: Information about the transport in this transport binding.
+        :param serializers: Information about the serializers in this transport binding.
+        :param labels: Set of labels that allow to define groups of transport bindings.
+        """
+        self.transport = transport
+        self.serializers = serializers
+
+    @staticmethod
+    def from_json(data: dict) -> Transports:
+        validate(instance=data, schema=transports_schema)
+
+        transport = TransportDescriptor.from_json(data.pop("transport"))
+        serializers = [SerializerType(s) for s in data.pop("serializers")]
+
+        return Transports(transport, serializers)
+
+
 class TransportDependency:
     """
     The TransportDependency data type supports the specification of requirements
@@ -1533,7 +1578,6 @@ class TransportDependency:
         return TransportDependency(transport, serializers, labels)
 
 
-# New
 class ServiceDependency:
     """
     The ServiceDependency data type supports the specification of requirements 
@@ -1588,7 +1632,18 @@ class ServiceDependency:
         if serTransportDependencies is not None:
             serTransportDependencies = [TransportDependency.from_json(td) for td in serTransportDependencies]
         else:
-            serTransportDependencies = [TransportDependency(TransportType.REST, "application/json")]
+            # TODO insert oAuth2Info when creating SecurityInfo to be used in TransportDescriptor?
+            transp_descript = TransportDescriptor(
+                name="REST", 
+                type=TransportType.REST, 
+                protocol="HTTP", 
+                version="2.0",
+                securityInfo=SecurityInfo()
+                )
+            # TODO label = ["A"], label = ["B"] or label = ["A", "B"]?
+            serTransportDependencies = [
+                TransportDependency(transp_descript, [SerializerType.JSON], ["A"])
+                ]
 
         requestedPermissions = data.pop("requestedPermissions", None)             
 
@@ -1626,27 +1681,83 @@ class DNSRuleDescriptor:
 
 
 class LatencyDescriptor:
-    def __init__(self) -> None:
-        pass
+    """
+    This data type describes latency requirements for a MEC application.
 
-    def from_json():
-        pass
+    Section 6.2.1.14 - MEC 010-2
+    """
+    def __init__(self, maxLatency: int):
+        """
+        :param maxLatency: Maximum latency in nano seconds tolerated by the MEC application.
+        """
+        self.maxLatency = maxLatency
+
+    @staticmethod
+    def from_json(data: dict) -> LatencyDescriptor:
+        return LatencyDescriptor(int(data.pop("maxLatency")))
 
 
 class UserContextTransferCapility:
-    def __init__(self) -> None:
-        pass
+    """
+    This data type represents the information of user context transfer capability of application.
 
-    def from_json():
-        pass
+    Section 6.2.1.20 - MEC 010-2
+    """
+    def __init__(self, statefulApplication: bool, userContextTransfer: bool = None):
+        """
+        :param statefulApplication: Indicates whether the application is stateful.
+        :param userContextTransfer: Indicates whether the application supports user 
+        context transfer. This attribute shall be present if the application is 
+        stateful and shall be absent otherwise.
+
+        """
+        self.statefulApplication = statefulApplication
+        self.userContextTransfer = userContextTransfer
+
+        if statefulApplication and userContextTransfer is None:
+            raise ValueError("userContextTransfer must be present if the application is stateful")
+        if not statefulApplication and userContextTransfer is not None:
+            raise ValueError("userContextTransfer must be absent if the application is not stateful")
+
+    @staticmethod
+    def from_json(data: dict) -> UserContextTransferCapility:
+        validate(instance=data, schema=userContextTransferCapility_schema)
+        return UserContextTransferCapility(**data)
+
+
+class SteeredNets:
+    def __init__(
+        self, 
+        cellularNetwork: bool = None, 
+        wifiNetwork: bool = None, 
+        fixedAccessNetwork: bool = None):
+        """
+        :param cellularNetwork: Indicates whether the application can be steered to cellular network.
+        :param wifiNetwork: Indicates whether the application can be steered to Wi-Fi network.
+        :param fixedAccessNetwork: Indicates whether the application can be steered to fixed access network.
+        """
+        self.cellularNetwork = cellularNetwork
+        self.wifiNetwork = wifiNetwork
+        self.fixedAccessNetwork = fixedAccessNetwork
 
 
 class AppNetworkPolicy:
-    def __init__(self) -> None:
-        pass
+    """
+    This data type represents the network policy in the application instantiation and operation.
 
-    def from_json():
-        pass
+    Section 6.2.1.21 - MEC 010-2
+    """
+    def __init__(self, steeredNetworks: SteeredNets):
+        """
+        :param steeredNetworks: The network policy of the application.
+        """
+        self.steeredNetworks = steeredNetworks
+
+    @staticmethod
+    def from_json(data: dict) -> AppNetworkPolicy:
+        validate(instance=data, schema=appNetworkPolicy_schema)
+
+        return AppNetworkPolicy(SteeredNets(**data["steeredNetwork"]))
 
 
 class ConfigPlatformForAppRequest:
@@ -1873,7 +1984,76 @@ class AppInstanceState:
                 operationalState=self.operationalState
             )
         )
-    
+
+
+# New
+class Links_:
+    """
+    This type represents links to resources that are related to a AppInstance resource.
+    """
+    def __init__(
+        self, 
+        self_: LinkType,
+        instantiate: LinkType = None,
+        terminate: LinkType = None,
+        operate: LinkType = None,
+        configure_platform_for_app: LinkType = None):
+        """
+        :param self_: Self referring URI.
+        :param instantiate: Link to the "instantiate" task resource, if the related operation is possible based on the current status of this application instance resource (i.e. application instance in NOT_INSTANTIATED state).
+        :param terminate: Link to the "terminate" task resource, if the related operation is possible based on the current status of this application instance resource (i.e. application instance is in INSTANTIATED state).
+        :param operate: Link to the "operate" task resource, if the related operation is possible based on the current status of this application instance resource (i.e. application instance is in INSTANTIATED state).
+        :param configure_platform_for_app: Link to the "configurePlatformForApp" task resource, if the related operation is possible based on the current status of this application instance resource (i.e. application instance is in INSTANTIATED state).
+        """
+        self.self_ = self_
+        self.instantiate = instantiate
+        self.terminate = terminate
+        self.operate = operate
+        self.configure_platform_for_app = configure_platform_for_app
+
+    @classmethod
+    def from_json(data: dict) -> Links_:
+        #validate(data, schema=links__schema)
+        self_ = LinkType.from_json(data.pop("self"))
+        instantiate = LinkType.from_json(data.pop("instantiate"))
+        terminate = LinkType.from_json(data.pop("terminate"))
+        operate = LinkType.from_json(data.pop("operate"))
+        configure_platform_for_app = LinkType.from_json(data.pop("configurePlatformForApp"))
+        return Links_(self_=self_, instantiate=instantiate, terminate=terminate, operate=operate, configure_platform_for_app=configure_platform_for_app)
+
+
+# New
+class AppInstanceInfo:
+    """
+    This data type the parameters of instantiated application instance resources.
+
+    Section 6.2.2.4 of ETSI MEC 010-2 v2.2.1 (2022-02)
+    """
+    def __init__(
+        self,
+        id: str,
+        appDId: str,
+        appProvider: str,
+        appName: str,
+        appSoftVersion: str,
+        appDVersion: str,
+        appPkgId: str,
+        instantiationState: InstantiationState,
+        appInstanceName: str = None,
+        appInstanceDescription: str = None,
+        vimConnectionInfo: List[VimConnectionInfo] = None,
+        nsInstanceId: str = None,
+        vnfInstaneId: str = None,
+        instantiationAppState: InstantiationAppState = None,
+        communicationInterface: CommunicationInterface = None,
+        _links: Links_ = None,
+        ):
+        """
+        :param id: Identifier of the application instance represented by this data type.
+        :param appDId: Identifier of the application descriptor associated with this application instance. ThIS identifier is managed by the application provider to identify the application descriptor in a globally unique way.
+
+        """
+        pass
 
 ############################ EXTRA SERVICES (DNS AND OAUTH) ###########################################
 
