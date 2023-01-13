@@ -18,11 +18,13 @@ LABEL org.opencontainers.image.source="https://github.com/UMinho-Netedge/netedge
 
 RUN useradd -m -d /home/netedge netedge
 RUN ["apt-get", "update"]
+
 COPY ./ /home/netedge
 USER netedge
 ENV PATH="$PATH:/home/netedge/.local/bin"
 RUN ["/usr/local/bin/python", "-m", "pip", "install", "--upgrade", "pip"]
 RUN ["pip","install","-r","/home/netedge/requirements.txt"]
+
 
 ENTRYPOINT ["python3"]
 CMD ["/home/netedge/main.py","--mongodb_addr","127.0.0.1","--mongodb_database","mep"]

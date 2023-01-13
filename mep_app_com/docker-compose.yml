@@ -16,9 +16,18 @@ version: "3.11"
 
 services:
   mepserver:
-      image: uminhonetedge/mep:1.0.0
+      # image: uminhonetedge/mep:1.0.0
+      # image: mep:staging
+      container_name: mepserver
+      build:
+        context: .
+        dockerfile: Dockerfile
       ports:
         - "8080:8080"
+      # volume binding for local development with hot-reload
+      volumes:
+        - ./mp1:/home/netedge/mp1/
+      restart: always
       environment:
         USER: netedge
         PATH: "$PATH:/home/netedge/.local/bin"
@@ -33,7 +42,8 @@ services:
         DNS_API_PORT: "8082"
 
   mep_mm5:
-      image: uminhonetedge/mm5:1.0.0
+      # image: uminhonetedge/mm5:1.0.0
+      image: mm5:staging
       ports:
         - "8085:8085"
       environment:
@@ -58,6 +68,7 @@ services:
     image: mongo-express
     ports:
       - "8081:8081"
+    restart: always
     environment:
       - ME_CONFIG_MONGODB_SERVER=mongodb
 
