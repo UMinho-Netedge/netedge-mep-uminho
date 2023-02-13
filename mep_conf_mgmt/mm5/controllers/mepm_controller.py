@@ -166,7 +166,9 @@ class MecPlatformMgMtController:
             error = BadRequest(e)
             return error.message()
 
-        if updateState.changeStateTo.value == appStatus["state"]["operationalState"].value:
+        # if updateState.changeStateTo.value == appStatus["state"]["operationalState"].value:
+        # AttributeError: 'str' object has no attribute 'value'
+        if updateState.changeStateTo.value == appStatus["state"]["operationalState"]:
             error_msg = "Application %s already in state %s." % (appInstanceId, updateState.changeStateTo.value)
             error = Conflict(error_msg)
             return error.message()
@@ -204,8 +206,6 @@ class MecPlatformMgMtController:
             indication=updateState.changeStateTo.name,
             state=appState.to_json()
         )
-
-
 
         cherrypy.thread_data.db.update(
             "appStatus", 
@@ -287,8 +287,8 @@ class MecPlatformMgMtController:
             )
             
             cherrypy.thread_data.db.update(
-                "appStatus", 
-                appInstanceDict, 
+                "appStatus",
+                appInstanceDict,
                 appStatusDict
             )
 
@@ -385,7 +385,7 @@ class MecPlatformMgMtController:
         )
 
         # If app exists in db
-        if appStatus is None or appsStatus['state'] == "NOT_INSTANTIATED":
+        if appStatus is None or appStatus['state'] == "NOT_INSTANTIATED":
             error_msg = "Application %s does not exist." % (appInstanceId)
             error = Conflict(error_msg)
             return error.message()
@@ -440,13 +440,73 @@ class MecPlatformMgMtController:
         return None
 
 
+    # TODO: CHECK IF THIS IS CORRECT
+    # INCOMPLETE
+    @cherrypy.tools.json_in()
+    @json_out(cls=NestedEncoder)
+    def mecApp_config_get(self, appInstanceId: str):
+        #Get App configuration
+        
+        cherrypy.log("Received request to get app %s configuration" %appInstanceId)
+
+        appStatus = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query=dict(appInstanceId=appInstanceId),
+            find_one=True,
+        )
+
+        # If app exists in db
+        if appStatus is None or appStatus['state'] == "NOT_INSTANTIATED":
+            error_msg = "Application %s does not exist." % (appInstanceId)
+            error = Conflict(error_msg)
+            return error.message()
+
+        # Get Traffic Rules
+        traffic_rules = cherrypy.thread_data.db.query_col(
+            "trafficRules",
+            query=dict(appInstanceId=appInstanceId)
+        )
+
+        traffic_rules = [TrafficRuleDescriptor(trafficRule=TrafficRule.from_json(rule)) for rule in traffic_rules]
+
+        # Get DNS Rules
+        dns_rules = cherrypy.thread_data.db.query_col(
+            "dnsRules",
+            query=dict(appInstanceId=appInstanceId)
+        )
+
+        dns_rules = [DNSRuleDescriptor(dnsRule=DNSRule.from_json(rule)) for rule in dns_rules]
+
+        return ConfigPlatformForAppResponse(appTrafficRule=traffic_rules, appDNSRule=dns_rules)
+
+
+    @json_out(cls=NestedEncoder)
+    def lcmOpp_get_all(self, **kwargs):
+        """
+        Get the status of all LCM operations
+        """
+        
+        if kwargs != {}:
+            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
+            error = BadRequest(error_msg)
+            return error.message()
+
+        result = cherrypy.thread_data.db.query_col("lcmOperations", query={})
+        res = list(result)
+        
+        if len(res) == 0:
+            error = NotFound("No LCM operation found")
+            return error.message()
+        
+        return res
+
+
     @json_out(cls=NestedEncoder)
     def lcmOpp_get(self, appLcmOpOccId:str, **kwargs):
-
         """
         Get the status of a LCM operation
         """
-        
+
         if kwargs != {}:
             error_msg = "Invalid attribute(s): %s" % (str(kwargs))
             error = BadRequest(error_msg)

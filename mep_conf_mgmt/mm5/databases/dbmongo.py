@@ -135,16 +135,19 @@ class MongoDb(DatabaseBase):
             # Dump the object to a string and then reload it as a dict (this deals with the nested objects)
             # This way it works for both Object with objects and Dicts with objects
             query = json.loads(json.dumps(query, cls=NestedEncoder))
+
         # Removes the default values None to a wildcard query match in order to properly query mongodb
         # the wildcard is {$exists:true}
         # Adds $in operator if the query contains a list
         query = mongodb_query_replace(query)
+        
         # cherrypy.log(json.dumps(query))
         # Query the collection according to query and obtain the fields specified in fields
         if find_one:
             data = collection.find_one(query, {"_id": 0} | fields)
         else:
             data = collection.find(query, {"_id": 0} | fields)
+
         return data
 
     def count_documents(self, col: str, query: dict):

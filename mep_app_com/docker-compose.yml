@@ -16,17 +16,17 @@ version: "3.11"
 
 services:
   mepserver:
-      # image: uminhonetedge/mep:1.0.0
+      image: uminhonetedge/mep:1.1.0
       # image: mep:staging
-      container_name: mepserver
-      build:
-        context: .
-        dockerfile: Dockerfile
+      #container_name: mepserver
+      #build:
+      #  context: .
+      #  dockerfile: Dockerfile
       ports:
         - "8080:8080"
       # volume binding for local development with hot-reload
-      volumes:
-        - ./mp1:/home/netedge/mp1/
+      #volumes:
+      #  - ./mp1:/home/netedge/mp1/
       restart: always
       environment:
         USER: netedge
@@ -43,9 +43,17 @@ services:
 
   mep_mm5:
       # image: uminhonetedge/mm5:1.0.0
-      image: mm5:staging
+      #image: mm5:staging
+      container_name: mm5
+      build:
+        context: ./../mep_conf_mgmt/
+        dockerfile: Dockerfile
       ports:
         - "8085:8085"
+      # volume binding (hot-reload)
+      volumes:
+        - ./../mep_conf_mgmt/mm5:/home/netedge/mm5/
+      restart: always
       environment:
         USER: netedge
         PATH: "$PATH:/home/netedge/.local/bin"
@@ -83,7 +91,8 @@ services:
         ME_CONFIG_MONGODB_ADMINPASSWORD: ""
 
   dns_api:
-    image: uminhonetedge/coredns_api:1.0.0
+    image: uminhonetedge/coredns_api:1.1.0
+    #image: coredns_api:staging
     volumes:
       - ./coredns:/tmp/coredns
     ports:

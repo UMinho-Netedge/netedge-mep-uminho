@@ -13,16 +13,21 @@
 #     limitations under the License.
 
 
-FROM python:3.9
+#FROM python:3.9
+FROM alpine:3.17.1
 
 LABEL org.opencontainers.image.source="https://github.com/UMinho-Netedge/netedge-mep-uminho/mep_conf_mgmt"
 
-RUN useradd -m -d /home/netedge netedge
-RUN ["apt-get", "update"]
+#RUN useradd -m -d /home/netedge netedge
+#RUN ["apt-get", "update"]
+RUN adduser -D -h /home/netedge netedge
+RUN apk update
+RUN apk add --no-cache python3 py3-pip
+
 COPY ./ /home/netedge
 USER netedge
 ENV PATH="$PATH:/home/netedge/.local/bin"
-RUN ["/usr/local/bin/python", "-m", "pip", "install", "--upgrade", "pip"]
+#RUN ["/usr/local/bin/python", "-m", "pip", "install", "--upgrade", "pip"]
 RUN ["pip","install","-r","/home/netedge/requirements.txt"]
 
 ENTRYPOINT ["python3"]

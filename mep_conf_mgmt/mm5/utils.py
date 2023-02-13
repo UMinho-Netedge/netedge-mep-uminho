@@ -124,6 +124,8 @@ def mongodb_query_replace(query: dict) -> dict:
             new_query[key] = {"$regex": ".*", "$options": "s"}
         else:
             new_query[key] = value
+
+        #print(f"new_query (mongodb_query_replace): {new_query}")
     return new_query
 
 

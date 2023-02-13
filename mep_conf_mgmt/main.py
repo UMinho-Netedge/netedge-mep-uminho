@@ -38,7 +38,7 @@ def main(database: Type[DatabaseBase]):
         name="Configure MEC App instance on start-up",
         action="mecApp_configure",
         controller=MecPlatformMgMtController,
-        route="/applications/:appInstanceId/configure",
+        route="/app_instances/:appInstanceId/configure_platform_for_app",
         conditions=dict(mecthod=["POST"]),
     )
 
@@ -46,7 +46,7 @@ def main(database: Type[DatabaseBase]):
         name="Update MEC App instance Status",
         action="mecApp_updateState",
         controller=MecPlatformMgMtController,
-        route="/applications/:appInstanceId/update_state",
+        route="/app_instances/:appInstanceId/operate",
         conditions=dict(method=["POST"]),
     )
 
@@ -54,8 +54,24 @@ def main(database: Type[DatabaseBase]):
         name="Terminte MEC App instance",
         action="mecApp_terminate",
         controller=MecPlatformMgMtController,
-        route="/applications/:appInstanceId/terminate",
+        route="/app_instances/:appInstanceId/terminate",
         conditions=dict(method=["POST"]),
+    )
+
+    mepm_dispatcher.connect(
+        name="Get configuration of MEC App instance",
+        action="mecApp_config_get",
+        controller=MecPlatformMgMtController,
+        route="/applications/:appInstanceId/configuration",
+        conditions=dict(method=["GET"]),
+    )
+
+    mepm_dispatcher.connect(
+        name="Query all LCM Operations",
+        action="lcmOpp_get_all",
+        controller=MecPlatformMgMtController,
+        route="/app_lcm_op_occs",
+        conditions=dict(method=["GET"]),
     )
 
     mepm_dispatcher.connect(
