@@ -14,14 +14,14 @@
 
 import sys
 import jsonschema
-from urllib import request, parse
+import uuid
+import base64
+import copy
+
 sys.path.append("../../")
 from mm5.models import *
 from hashlib import md5
-from datetime import datetime
-import uuid
 from mm5.controllers.app_callback_controller import *
-import base64
 
 class MecPlatformMgMtController:
 
@@ -241,21 +241,27 @@ class MecPlatformMgMtController:
             find_one=True,
         )
 
-        # If app exists in db
+        # If app does not exist in db
         if appStatus is None:
             error_msg = "Application %s not instantiated." % (appInstanceId)
             error = Conflict(error_msg)
             return error.message()
 
         data = cherrypy.request.json
+
         # The process of generating the class allows for "automatic" validation of the json and
         # for filtering after saving to the database
         try:
             # Verify the requestion body if its correct about its schema:
-            termination = TerminateAppInstance.from_json(data)
+            termination = TerminateAppInstance.from_json(copy.deepcopy(data))
 
         except (TypeError, jsonschema.exceptions.ValidationError) as e:
             error = BadRequest(e)
+            return error.message()
+
+        if data['appInstanceId'] != appInstanceId:
+            error_msg = "Application in body %s does not match the one in the URL %s." % (data['appInstanceId'], appInstanceId)
+            error = BadRequest(error_msg)
             return error.message()
 
         if termination.terminationType == TerminationType.GRACEFUL:
