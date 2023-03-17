@@ -1,0 +1,103 @@
+# Copyright 2022 Centro ALGORITMI - University of Minho
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+#     Unless required by applicable law or agreed to in writing, software
+#     distributed under the License is distributed on an "AS IS" BASIS,
+#     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#     See the License for the specific language governing permissions and
+#     limitations under the License.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.dnsapi.name }}-configmap
+  namespace: {{ .Values.namespace }}
+data:
+  dnsapi-server-url: "{{ .Values.dnsapi.name }}-service"
+  dnsapi-server-port: "{{ .Values.dnsapi.service.port }}"
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.dnsapi.name }}-deployment
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.dnsapi.name }}
+spec:
+  replicas: {{ .Values.dnsapi.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.dnsapi.name }}
+  template:
+    metadata:
+      namespace: {{ .Values.namespace }}
+      labels:
+        app: {{ .Values.dnsapi.name }}
+    spec:
+      containers:
+      - name: {{ .Values.dnsapi.name }}
+        image: "{{ .Values.dnsapi.image }}"
+        ports:
+        - containerPort: {{ .Values.dnsapi.service.targetPort }}
+        volumeMounts:
+          - name: {{ .Values.dnsapi.name }}-storage
+            mountPath: /tmp/coredns
+      volumes:
+        - name: {{ .Values.dnsapi.name }}-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.dnsapi.name }}-pvc
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.dnsapi.name }}-service
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.dnsapi.name }}
+spec:
+  selector:
+    app: {{ .Values.dnsapi.name }}
+  ports:
+  - name: {{ .Values.dnsapi.name }}
+    protocol: TCP
+    port: {{ .Values.dnsapi.service.port }}
+    targetPort: {{ .Values.dnsapi.service.targetPort }}
+  type: {{ .Values.dnsapi.service.type }}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.dnsapi.name }}-pvc
+  namespace: {{ .Values.namespace }}
+spec:
+  storageClassName: {{ .Values.dnsapi.name }}-class
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ .Values.dnsapi.name }}-storage
+  labels:
+    app: {{ .Values.dnsapi.name }}
+spec:
+  storageClassName: {{ .Values.dnsapi.name }}-class
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data/dns/"

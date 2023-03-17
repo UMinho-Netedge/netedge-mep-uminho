@@ -16,7 +16,7 @@ version: "3.11"
 
 services:
   mepserver:
-      image: uminhonetedge/mep:1.1.0
+      image: uminhonetedge/mep:1.1.1
       # image: mep:staging
       #container_name: mepserver
       #build:
@@ -42,12 +42,12 @@ services:
         DNS_API_PORT: "8082"
 
   mep_mm5:
-      # image: uminhonetedge/mm5:1.0.0
+      image: uminhonetedge/mm5:1.1.0
       #image: mm5:staging
-      container_name: mm5
-      build:
-        context: ./../mep_conf_mgmt/
-        dockerfile: Dockerfile
+      # container_name: mm5
+      # build:
+      #   context: ./../mep_conf_mgmt/
+      #   dockerfile: Dockerfile
       ports:
         - "8085:8085"
       # volume binding (hot-reload)

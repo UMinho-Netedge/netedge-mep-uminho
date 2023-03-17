@@ -1,71 +1,84 @@
-# Default values for mepchart.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+nameoverride: ""
 
-replicaCount: 1
+appName: "netedge-mep"
+namespace: "netedge-host"
+appInstanceId: "netedge-host-12321"
 
-image:
-  # this should be from the ATNOG/netedge-mep repository
-  repository: ghcr.io/oescal/mepserver
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: "latest"
+mongo:
+  name: mongo
+  image: mongo
+  storage: 1Gi
+  replicas: 1
+  user: bmV0ZWRnZQ==
+  password: TUVDXCFtMG5nMA==
+  database: mep
+  imagePullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 27017
 
-imagePullSecrets: []
-nameOverride: ""
-fullnameOverride: "mep"
+mepserver:
+  name: mepserver
+  image: uminhonetedge/mep:1.1.1
+  imagePullPolicy: Always
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  ingress:
+    url: mp1.netedge-mep.com
 
-mep:
-  internalPort: 8080
-  filePath: "/home/netedge/main.py"
-  args:
-    mongodb_addr: "127.0.0.1"
-    mongodb_port: "27017"
-    mongodb_database: "mep"
-    mongodb_password: "admin"
-    mongodb_username: "admin"
+mepconfig:
+  name: mepconfig
+  image: uminhonetedge/mm5:1.1.0
+  imagePullPolicy: Always
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 8085
+    targetPort: 8085
+  ingress:
+    url: mm5.netedge-mep.com
 
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
+auth:
+  name: auth
+  image: arom98/auth-server:6.7
+  imagePullPolicy: Always
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 5001
+    targetPort: 5001
 
-podAnnotations: {}
+dnsapi:
+  name: dnsapi
+  image: uminhonetedge/coredns_api:1.1.0
+  imagePullPolicy: Always
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 8082
+    targetPort: 8082
 
-podSecurityContext: {}
+coredns:
+  name: coredns
+  image: coredns/coredns:1.10.0
+  imagePullPolicy: Always
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 1053
+    targetPort: 1053
 
-securityContext: {}
-
-service:
-  type: NodePort
-  nodePort: 30080
-  port: 8080
-
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-
-resources: {}
-
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 1
-  targetCPUUtilizationPercentage: 80
-
-nodeSelector: {}
-
-tolerations: []
-
-affinity: {}
+mongoexpress:
+  name: mongoexpress
+  image: mongo-express
+  imagePullPolicy: Always
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 8081
+    targetPort: 8081
+  ingress:
+    url: mongoexpress.netedge-mep.com
