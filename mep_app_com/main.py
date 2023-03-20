@@ -37,6 +37,8 @@ from mp1.application_support.controllers.app_traffic_rules_controller           
     import (AppTrafficRulesController,)
 from mp1.application_support.controllers.app_subscriptions_controller           \
     import (ApplicationSubscriptionsController)
+from mp1.application_support.controllers.app_token_controller                   \
+    import (AppTokenController,)
 
 
 from mp1.databases.database_base import DatabaseBase
@@ -185,6 +187,18 @@ def main(database: Type[DatabaseBase]):
         route="/timing/current_time",
         conditions=dict(method=["GET"]),
     )
+
+    #########################
+    # App Token Controller  #
+    #########################
+    support_dispatcher.connect(
+        name="Get App Instance Token",
+        action="token_get",
+        controller=AppTokenController,
+        route="/credentials/:appInstanceId",
+        conditions=dict(method=["GET"]),
+    )
+
 
     #############################################
     # Application service management interface  #

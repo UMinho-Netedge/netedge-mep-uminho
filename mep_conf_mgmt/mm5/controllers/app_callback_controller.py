@@ -111,7 +111,7 @@ class CallbackController:
         sleep_time: int,
     ):
 
-        # cherrypy.log("Starting rule configuration function")
+        cherrypy.log("Starting rule configuration function")
         networkPolicy = trafficRuleToNetworkPolicy(appInstanceId=appInstanceId, trafficRuleId=trafficRule.trafficRuleId, data=trafficRule.toNetworkPolicy())
         # cherrypy.log("Network Policy")
         # cherrypy.log(json.dumps(networkPolicy))

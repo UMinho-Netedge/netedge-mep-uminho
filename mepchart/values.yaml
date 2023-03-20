@@ -19,7 +19,7 @@ mongo:
 
 mepserver:
   name: mepserver
-  image: uminhonetedge/mep:1.1.1
+  image: uminhonetedge/mep:1.1.4
   imagePullPolicy: Always
   replicas: 1
   service:

@@ -45,21 +45,5 @@ helm package .
 ### Usage
 ```bash
 # Without replace
-helm install NetEdge-MEP <chart_name>
-```
-
-## Using it as a Network Service in ETSI Open Source MANO (OSM)
-### Add the helm repository in OSM k8s Repos
-```bash
-osm repo-add --type helm-chart --description "UMinho NetEdge Repo" netedge-mep https://uminho-netedge.github.io/NetEdge-MEP/
-```
-### Create the KNF and NS in OSM
-Download the files netedge-mep_knf.tar.gz and netedge-mep_ns.tar.gz of this repository and use them to create the packages on OSM
-```bash
-osm vnfd-create netedge-mep_knf.tar.gz
-osm nsd-create netedge-mep_ns.tar.gz
-```
-### Instantiate MEP as a NS
-```bash
-osm ns-create --ns_name netedge-mep --nsd_name netedge-mep_ns --vim_account <VIM_NAME|VIM_ID>
+helm install  <chart_name> .
 ```
