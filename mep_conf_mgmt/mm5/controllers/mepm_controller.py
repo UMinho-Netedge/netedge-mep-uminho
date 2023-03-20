@@ -284,7 +284,7 @@ class MecPlatformMgMtController:
             CallbackController.execute_callback(
                 args=[subscription, notification],
                 func=CallbackController._notifyTermination,
-                sleep_time=10
+                sleep_time=0
             )
 
             appInstanceDict = dict(appInstanceId=appInstanceId)

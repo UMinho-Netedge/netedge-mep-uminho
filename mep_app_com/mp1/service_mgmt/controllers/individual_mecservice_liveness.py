@@ -37,7 +37,7 @@ class InvidualMecServiceLivenessController:
         # The process of generating the class allows for "automatic" validation of the json
 
         try:
-            livenessUpdate = serviceLivenessUpdate.from_json(data)
+            livenessUpdate = ServiceLivenessUpdate.from_json(data)
         except (TypeError, jsonschema.exceptions.ValidationError) as e:
             error = BadRequest(e)
             return error.message()
