@@ -18,7 +18,7 @@ metadata:
   name: mongodb-configmap
   namespace: {{ .Values.namespace }}
   labels:
-    app.kubernetes.io/name: {{ .Values.appname }}
+    app.kubernetes.io/name: {{ .Values.appName }}
     app.kubernetes.io/instance: {{ .Values.appInstanceId }}
 data:
   database_url: "{{ .Values.mongo.name }}-service"
@@ -31,7 +31,7 @@ metadata:
   name: mongodb-secret
   namespace: {{ .Values.namespace }}
   labels:
-    app.kubernetes.io/name: {{ .Values.appname }}
+    app.kubernetes.io/name: {{ .Values.appName }}
     app.kubernetes.io/instance: {{ .Values.appInstanceId }}
 type: Opaque
 data:
