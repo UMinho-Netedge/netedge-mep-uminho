@@ -129,4 +129,4 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "/{{ .Values.appInstanceId }}/mongodb/"
+    path: "/tmp/{{ .Values.appInstanceId }}/mongodb/"

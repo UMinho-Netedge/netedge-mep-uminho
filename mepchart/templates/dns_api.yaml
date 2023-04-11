@@ -101,4 +101,4 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "/{{ .Values.appInstanceId }}/dns/"
+    path: "/tmp/{{ .Values.appInstanceId }}/dns/"
