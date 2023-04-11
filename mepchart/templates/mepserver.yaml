@@ -100,29 +100,9 @@ spec:
     protocol: TCP
     port: {{ .Values.mepserver.service.port }}
     targetPort: {{ .Values.mepserver.service.targetPort }}
+    nodePort: {{ .Values.mepserver.service.nodePort }}
   type: {{ .Values.mepserver.service.type }}
 
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: {{ .Values.mepserver.name }}-ingress
-  namespace: {{ .Values.namespace }}
-  labels:
-    app.kubernetes.io/name: {{ .Values.mepserver.name }}
-    app.kubernetes.io/instance: {{ .Values.appInstanceId }}
-spec:
-  rules:
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: {{ .Values.mepserver.name }}-service
-            port:
-              number: {{ .Values.mepserver.service.port }}
-    host: {{ .Values.mepserver.ingress.url }}
 ---
 apiVersion: v1
 kind: ServiceAccount

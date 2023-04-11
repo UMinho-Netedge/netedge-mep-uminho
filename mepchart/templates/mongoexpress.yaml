@@ -80,26 +80,5 @@ spec:
   - protocol: TCP
     port: {{ .Values.mongoexpress.service.port }}
     targetPort: {{ .Values.mongoexpress.service.targetPort }}
+    nodePort: {{ .Values.mongoexpress.service.nodePort }}
   type: {{ .Values.mongoexpress.service.type }}
-
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: {{ .Values.mongoexpress.name }}-ingress
-  namespace: {{ .Values.namespace }}
-  labels:
-    app.kubernetes.io/name: {{ .Values.mongoexpress.name }}
-    app.kubernetes.io/instance: {{ .Values.appInstanceId }}
-spec:
-  rules:
-  - http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: {{ .Values.mongoexpress.name }}-service
-            port:
-              number: {{ .Values.mongoexpress.service.port }}
-    host: {{ .Values.mongoexpress.ingress.url }}

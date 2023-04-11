@@ -77,7 +77,7 @@ spec:
                 key: mongodb_password     
         volumeMounts:
         - name: mongodb-storage
-          mountPath: /data/mongodb
+          mountPath: /{{ .Values.appInstanceId }}/mongodb
       volumes:
         - name: mongodb-storage
           persistentVolumeClaim:
@@ -129,4 +129,4 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "/data/mongodb/"
+    path: "/{{ .Values.appInstanceId }}/mongodb/"

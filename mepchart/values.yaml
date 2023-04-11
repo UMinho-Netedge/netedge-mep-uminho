@@ -23,11 +23,12 @@ mepserver:
   imagePullPolicy: Always
   replicas: 1
   service:
-    type: ClusterIP
+    type: NodePort
     port: 8080
     targetPort: 8080
-  ingress:
-    url: mp1.netedge-mep.com
+    nodePort: 30000
+  # ingress:
+  #   url: mp1.netedge-mep.com
 
 mepconfig:
   name: mepconfig
@@ -35,11 +36,12 @@ mepconfig:
   imagePullPolicy: Always
   replicas: 1
   service:
-    type: ClusterIP
+    type: NodePort
     port: 8085
     targetPort: 8085
-  ingress:
-    url: mm5.netedge-mep.com
+    nodePort: 30001
+  # ingress:
+  #   url: mm5.netedge-mep.com
 
 auth:
   name: auth
@@ -67,9 +69,10 @@ coredns:
   imagePullPolicy: Always
   replicas: 1
   service:
-    type: ClusterIP
+    type: NodePort
     port: 1053
     targetPort: 1053
+    nodePort: 30002
 
 mongoexpress:
   name: mongoexpress
@@ -77,8 +80,9 @@ mongoexpress:
   imagePullPolicy: Always
   replicas: 1
   service:
-    type: ClusterIP
+    type: NodePort
     port: 8081
     targetPort: 8081
-  ingress:
-    url: mongoexpress.netedge-mep.com
+    nodePort: 30003
+  # ingress:
+  #   url: mongoexpress.netedge-mep.com

@@ -55,10 +55,17 @@ metadata:
   name: {{ .Values.coredns.name }}-service
   namespace: {{ .Values.namespace }}
 spec:
+  type: {{ .Values.coredns.service.type }}
   ports:
-    - protocol: UDP
-      port: 1053
-      targetPort: 1053
-  type: LoadBalancer
+    - name: udp
+      protocol: UDP
+      port: {{ .Values.coredns.service.port }}
+      targetPort: {{ .Values.coredns.service.targetPort }}
+      nodePort: {{ .Values.coredns.service.nodePort }}
+    - name: tcp
+      protocol: TCP
+      port: {{ .Values.coredns.service.port }}
+      targetPort: {{ .Values.coredns.service.targetPort }}
+      nodePort: {{ .Values.coredns.service.nodePort }}
   selector:
     app: {{ .Values.coredns.name }}

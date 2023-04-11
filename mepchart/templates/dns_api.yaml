@@ -71,6 +71,7 @@ spec:
     protocol: TCP
     port: {{ .Values.dnsapi.service.port }}
     targetPort: {{ .Values.dnsapi.service.targetPort }}
+    nodePort: {{ .Values.dnsapi.service.nodePort }}
   type: {{ .Values.dnsapi.service.type }}
 
 ---
@@ -100,4 +101,4 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "/data/dns/"
+    path: "/{{ .Values.appInstanceId }}/dns/"
