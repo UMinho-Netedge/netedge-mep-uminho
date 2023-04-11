@@ -39,12 +39,12 @@ data:
   mongodb_password: {{ .Values.mongo.password }}
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   labels:
     app.kubernetes.io/name: {{ .Values.mongo.name }}
     app.kubernetes.io/instance: {{ .Values.appInstanceId }}
-  name: {{ .Values.mongo.name }}-deployment
+  name: {{ .Values.mongo.name }}-statefulset
   namespace: {{ .Values.namespace }}
 spec:
   replicas: {{ .Values.mongo.replicas }}

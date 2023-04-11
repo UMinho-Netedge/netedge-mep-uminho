@@ -103,8 +103,6 @@ spec:
   type: {{ .Values.mepserver.service.type }}
 
 ---
-
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -125,3 +123,34 @@ spec:
             port:
               number: {{ .Values.mepserver.service.port }}
     host: {{ .Values.mepserver.ingress.url }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: default
+  namespace: {{ .Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.mepserver.name }}-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get","list","watch","update","create", "delete"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get","list","watch","update","create","delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.mepserver.name }}-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.mepserver.name }}-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: {{ .Values.namespace }}

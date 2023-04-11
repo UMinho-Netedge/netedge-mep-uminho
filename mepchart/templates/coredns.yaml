@@ -13,11 +13,11 @@
 #     limitations under the License.
 
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   labels:
     app: {{ .Values.coredns.name }}
-  name: coredns-deployment
+  name: coredns-statefulset
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
