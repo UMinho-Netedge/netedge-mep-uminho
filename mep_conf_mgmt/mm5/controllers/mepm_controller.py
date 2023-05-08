@@ -48,15 +48,7 @@ class MecPlatformMgMtController:
             oauth = cherrypy.config.get("oauth_server")
             credentials = oauth.register()
             token = oauth.get_token(credentials["client_id"], credentials["client_secret"])
-            credentials["access_token"] = token
-            secret = dict(access_token=base64.b64encode(token.encode('ascii')).decode('ascii'))
-            
-            CallbackController.execute_callback(
-                args=[appInstanceId, secret],
-                func=CallbackController._create_secret,
-                sleep_time=0
-            )
-            
+            credentials["access_token"] = token            
                     
         except:
             error_msg = "OAuth server is not available, please try again in a few minutes."
@@ -72,42 +64,44 @@ class MecPlatformMgMtController:
             return error.message()  
 
         # Configure Traffic Rules
-        for ruleDescriptor in configRequest.appTrafficRule:
+        if configRequest.appTrafficRule is not None:
+            for ruleDescriptor in configRequest.appTrafficRule:
 
-            rule = ruleDescriptor.trafficRule
-                
-            CallbackController.execute_callback(
-                args=[appInstanceId, rule],
-                func=CallbackController._configureTrafficRule,
-                sleep_time=0
-            )
-
-            cherrypy.thread_data.db.create(
-                "trafficRules",
-                object_to_mongodb_dict(
-                rule,
-                extra=dict(appInstanceId=appInstanceId)
+                rule = ruleDescriptor.trafficRule
+                    
+                CallbackController.execute_callback(
+                    args=[appInstanceId, rule],
+                    func=CallbackController._configureTrafficRule,
+                    sleep_time=0
                 )
-            )
+
+                cherrypy.thread_data.db.create(
+                    "trafficRules",
+                    object_to_mongodb_dict(
+                    rule,
+                    extra=dict(appInstanceId=appInstanceId)
+                    )
+                )
         
         # Configure DNS Rules
-        for ruleDescriptor in configRequest.appDNSRule:
+        if configRequest.appDNSRule is not None:
+            for ruleDescriptor in configRequest.appDNSRule:
 
-            rule = ruleDescriptor.dnsRule
-                
-            CallbackController.execute_callback(
-                args=[appInstanceId, rule],
-                func=CallbackController._configureDnsRule,
-                sleep_time=0
-            )
+                rule = ruleDescriptor.dnsRule
+                    
+                CallbackController.execute_callback(
+                    args=[appInstanceId, rule],
+                    func=CallbackController._configureDnsRule,
+                    sleep_time=0
+                )
 
-            lastModified = cherrypy.response.headers['Date']
+                lastModified = cherrypy.response.headers['Date']
 
-            new_rec = {
-                "appInstanceId": appInstanceId, 
-                "lastModified": lastModified,
-                } | rule.to_json()
-            cherrypy.thread_data.db.create("dnsRules", new_rec)
+                new_rec = {
+                    "appInstanceId": appInstanceId, 
+                    "lastModified": lastModified,
+                    } | rule.to_json()
+                cherrypy.thread_data.db.create("dnsRules", new_rec)
 
         appState  = AppInstanceState(InstantiationState.INSTANTIATED.value, OperationalState.STARTED.value)
         appStatusDict = dict(
@@ -309,6 +303,12 @@ class MecPlatformMgMtController:
                 operationStatus=OperationStatus.PROCESSING.name
             )
 
+            CallbackController.execute_callback(
+                args=[appInstanceId, lifecycleOperationOccurrenceId],
+                func=CallbackController._gracefulTerminationChecker,
+                sleep_time=termination.gracefulStopTimeout
+            )
+
             cherrypy.thread_data.db.create("lcmOperations", lcmOperationOccurence)
 
             return dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId)
@@ -316,12 +316,6 @@ class MecPlatformMgMtController:
         oauth = cherrypy.config.get("oauth_server")
 
         oauth.delete_client(appStatus['oauth']['client_id'], appStatus['oauth']['client_secret'])
-
-        CallbackController.execute_callback(
-                args=[appInstanceId],
-                func=CallbackController._remove_secret,
-                sleep_time=0
-            )
 
         query = {"appInstanceId": appInstanceId}
         

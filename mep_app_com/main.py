@@ -193,10 +193,10 @@ def main(database: Type[DatabaseBase]):
     #########################
     support_dispatcher.connect(
         name="Get App Instance Token",
-        action="token_get",
+        action="get_credentials",
         controller=AppTokenController,
-        route="/credentials/:appInstanceId",
-        conditions=dict(method=["GET"]),
+        route="/credentials/",
+        conditions=dict(method=["POST"]),
     )
 
 

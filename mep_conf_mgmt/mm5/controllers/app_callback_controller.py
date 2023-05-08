@@ -110,9 +110,9 @@ class CallbackController:
         trafficRule: TrafficRule,
         sleep_time: int,
     ):
-
+        nameSpace = cherrypy.config.get("namespace")
         cherrypy.log("Starting rule configuration function")
-        networkPolicy = trafficRuleToNetworkPolicy(appInstanceId=appInstanceId, trafficRuleId=trafficRule.trafficRuleId, data=trafficRule.toNetworkPolicy())
+        networkPolicy = trafficRuleToNetworkPolicy(nameSpace=nameSpace, appInstanceId=appInstanceId, trafficRuleId=trafficRule.trafficRuleId, data=trafficRule.toNetworkPolicy())
         # cherrypy.log("Network Policy")
         # cherrypy.log(json.dumps(networkPolicy))
 
@@ -133,10 +133,10 @@ class CallbackController:
         trafficRule: TrafficRule,
         sleep_time: int,
     ):
-
+        
         # cherrypy.log("Starting rule configuration function")
         networkPolicy = "networkpolicy-%s" %trafficRule['trafficRuleId']
-        namespace = appInstanceId
+        nameSpace = cherrypy.config.get("namespace")
         # cherrypy.log("Network Policy")
         # cherrypy.log(json.dumps(networkPolicy))
 
@@ -144,7 +144,7 @@ class CallbackController:
         config.load_incluster_config()
         k8s_client = client.ApiClient()
         api_instance = client.NetworkingV1Api(k8s_client)
-        api_instance.delete_namespaced_network_policy(name=networkPolicy, namespace=namespace)
+        api_instance.delete_namespaced_network_policy(name=networkPolicy, namespace=nameSpace)
         
         cherrypy.log("Traffic Rule Id %s removed: %f" %(trafficRule['trafficRuleId'], time.time()))
 
@@ -240,5 +240,80 @@ class CallbackController:
         dnsApiServer.remove_record(dnsRule['domainName'])
         
         cherrypy.log("DNS Rule Id %s removed: %f" %(dnsRule['dnsRuleId'], time.time()))
+
+        task.cancel()
+
+    def _gracefulTerminationChecker(
+        task,
+        appInstanceId: str,
+        lifecycleOperationOccurrenceId: str,
+        sleep_time: int,
+    ):
+        time.sleep(sleep_time)
+        cherrypy.log("Graceful termination checker")
+
+        lcmOppOcc = cherrypy.thread_data.db.query_col(
+            "lcmOperations",
+            query=dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId),
+            find_one=True,
+        )
+
+        if lcmOppOcc.operationStatus is not OperationStatus.SUCCESSFULLY_DONE.name:
+            cherrypy.log("Graceful termination did not occur properly, terminating forcefully.")
+            oauth = cherrypy.config.get("oauth_server")
+
+            appStatus = cherrypy.thread_data.db.query_col(
+                "appStatus",
+                query=dict(appInstanceId=appInstanceId),
+                find_one=True,
+            )
+
+            oauth.delete_client(appStatus['oauth']['client_id'], appStatus['oauth']['client_secret'])
+
+            query = {"appInstanceId": appInstanceId}
+            
+            result = cherrypy.thread_data.db.query_col(
+                "trafficRules", 
+                query=query,
+                fields=dict(appInstanceId=0)
+            )
+
+            for rule in result:
+
+                CallbackController.execute_callback(
+                    args=[appInstanceId, rule],
+                    func=CallbackController._removeTrafficRule,
+                    sleep_time=0
+                )
+                
+                cherrypy.thread_data.db.remove(col= "trafficRules",
+                query=dict(trafficRuleId=rule['trafficRuleId']))
+                
+
+            query = dict(appInstanceId=appInstanceId, state="ACTIVE")
+
+            result = cherrypy.thread_data.db.query_col("dnsRules", query)
+
+            for rule in result:
+                CallbackController.execute_callback(
+                    args=[appInstanceId, rule],
+                    func=CallbackController._removeDnsRule,
+                    sleep_time=0
+                )
+                
+                cherrypy.thread_data.db.remove(col= "dnsRules",
+                query=dict(dnsRuleId=rule['dnsRuleId']))           
+
+
+            appInstanceDict = dict(appInstanceId=appInstanceId)
+            cherrypy.thread_data.db.remove("appStatus", appInstanceDict)
+
+            cherrypy.thread_data.db.update(
+                "lcmOperations", 
+                dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId), 
+                dict(operationStatus=OperationStatus.SUCCESSFULLY_DONE.name)
+            )
+
+
 
         task.cancel()

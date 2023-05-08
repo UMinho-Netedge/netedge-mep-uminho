@@ -24,18 +24,26 @@ import jsonschema
 
 
 class AppTokenController:
+
+    @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
-    def token_get(self, appInstanceId: str, **kwargs):
+    def get_credentials(self, **kwargs):
         """"
-        This method retrieves the information of the platform's timing capabilities which corresponds to the timing capabilities query
+        This method retrieves the application OAuth 2.0 credentials
         
-        :return: TimingCaps or ProblemDetails
+        :return: Credentials or ProblemDetails
         """
 
-        if kwargs != {}:
-            error_msg = "Invalid attribute(s): %s" % (str(kwargs))
-            error = BadRequest(error_msg)
-            return error.message()
+        try:
+            data = cherrypy.request.json
+            cherrypy.log("Received a get credentials request")
+            appInstanceId = data['appInstanceId']
+            cherrypy.log('appInstanceId: '+appInstanceId)
+        except (TypeError, jsonschema.exceptions.ValidationError) as e:
+            error = BadRequest(e)
+            return error.message()  
+
+
 
         # Check if the appInstanceId has already confirmed ready status
         appStatus = cherrypy.thread_data.db.query_col(
@@ -50,6 +58,6 @@ class AppTokenController:
             error = NotFound(error_msg)
             return error.message()
 
-        credentials = [appStatus["oauth"]]
+        credentials = appStatus["oauth"]
         
         return credentials

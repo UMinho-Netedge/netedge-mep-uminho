@@ -17,14 +17,15 @@ import sys
 import jsonschema
 import cherrypy
 import time
-
+import datetime
 sys.path.append("../../")
 from mp1.models import *
 from mp1.enums import IndicationType
+from mp1.application_support.controllers.app_callback_controller import *
 from ratelimit import limits, RateLimitException, sleep_and_retry
 from threading import Lock
 from json.decoder import JSONDecodeError
-
+from functools import wraps
 
 ATTEMPT_LIM = 1  # maximum no. of attempts in TIME_RESET seconds 
 TIME_RESET = 5  # in seconds
@@ -100,10 +101,40 @@ class ApplicationConfirmationController:
         return inner_function
 
 
+    def validate_token(func):
+        @wraps(func)
+        def check_token(*args, **kwargs):
+            cherrypy.log('Received request. Validating token.')
+            # Validate client credentials
+            try:
+                auth_header = cherrypy.request.headers['Authorization']
+            except KeyError:
+                error_msg = "No access token provided."
+                error = Unauthorized(error_msg)
+                return error.message()
+
+            if auth_header is None:
+                error_msg = "No access token provided."
+                error = Unauthorized(error_msg)
+                return error.message()
+            
+            oauth = cherrypy.config.get("oauth_server")
+            access_token = auth_header.split(' ')[1]
+            cherrypy.log('Access token: ' + access_token)
+            if oauth.validate_token(access_token) is False:
+                error_msg = "Invalid access token."
+                error = Unauthorized(error_msg)
+                return error.message()
+
+            return func(*args, **kwargs)
+        
+        return check_token
+
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
     @exception_handler
     @limits(calls=ATTEMPT_LIM, period=TIME_RESET)
+    @validate_token
     def application_confirm_ready(self, appInstanceId: str, **kwargs):
         """
         This method may be used by the MEC application instance to notify the MEC platform that it is up and running.
@@ -130,26 +161,6 @@ class ApplicationConfirmationController:
         except (TypeError, jsonschema.exceptions.ValidationError) as e:
             error = BadRequest(e)
             return error.message()  
-        
-
-        # Validate client credentials
-        try:
-            access_token = kwargs["access_token"]
-        except KeyError:
-            error_msg = "No access token provided."
-            error = Unauthorized(error_msg)
-            return error.message()
-
-        if access_token is None:
-            error_msg = "No access token provided."
-            error = Unauthorized(error_msg)
-            return error.message()
-        
-        oauth = cherrypy.config.get("oauth_server")
-        if oauth.validate_token(access_token) is False:
-            error_msg = "Invalid access token."
-            error = Unauthorized(error_msg)
-            return error.message()
 
         # Before attempting to insert data into the collection check if the app hasn't already registered itself
         if appStatus['indication'] == IndicationType.READY.name:
@@ -172,6 +183,7 @@ class ApplicationConfirmationController:
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
+    @validate_token
     def application_confirm_termination(self, appInstanceId: str, **kwargs):
         """
         This method is used to confirm the application level termination of an application instance.
@@ -211,120 +223,151 @@ class ApplicationConfirmationController:
         # The service producing App should deregister its produced services
         # before the time expires.
 
-        if not appStatus:
+        if appStatus is None:
             error_msg = "The application instance resource is not instantiated."
             error = Conflict(error_msg)
             return error.message()
 
-        else:
-            # Validate client credentials
-            try:
-                access_token = kwargs["access_token"]
-            except KeyError:
-                error_msg = "No access token provided."
-                error = Unauthorized(error_msg)
-                return error.message()
+        # At this point, in appStatus collection, "indication" has already 
+        # been changed to "TERMINATING" or "STOPPING". This attribute must match
+        # that sent in AppTerminationConfirmation, raising an error otherwise.
+        operationAction = str(appTerminationConfirmation.operationAction)
 
-            if access_token is None:
-                error_msg = "No access token provided."
-                error = Unauthorized(error_msg)
-                return error.message()
-            
-            oauth = cherrypy.config.get("oauth_server")
-            if oauth.validate_token(access_token) is False:
-                error_msg = "Invalid access token."
-                error = Unauthorized(error_msg)
-                return error.message()
-
-
-
-            # At this point, in appStatus collection, "indication" has already 
-            # been changed to "TERMINATING" or "STOPPING". This attribute must match
-            # that sent in AppTerminationConfirmation, raising an error otherwise.
-            operationAction = str(appTerminationConfirmation.operationAction)
-
-            if appStatus['indication'] != operationAction:
-                # First attempt #
-                # if true: add new element in class dict. 
-                # otherwise: do nothing and passes to else
-                if ApplicationConfirmationController.add_app_if_not_exists(appInstanceId):
-                    pass
-
-                # Next attempts #
-                # Add 1 more attempt to correspondent dict pair and tests for 
-                # attempt rate limit
-                else:
-                    # return TooManyRequests error with gived msg if RATE_LIM is excedeed
-                    error_msg = f"Too many requests have been sent. Try again soon."
-                    error = ApplicationConfirmationController.add_attempt(appInstanceId, error_msg)
-                    if error is not None:
-                        return error
-
-                error_msg = f"There is no {operationAction.lower()} operation ongoing."
-                error = Conflict(error_msg)
-                return error.message()
-
-            # if appStatus['indication'] == operationAction
-            # First attempt
+        if appStatus['indication'] != operationAction:
+            # First attempt #
+            # if true: add new element in class dict. 
+            # otherwise: do nothing and passes to else
             if ApplicationConfirmationController.add_app_if_not_exists(appInstanceId):
-                    pass
+                pass
 
-            # Next attempts
+            # Next attempts #
+            # Add 1 more attempt to correspondent dict pair and tests for 
+            # attempt rate limit
             else:
                 # return TooManyRequests error with gived msg if RATE_LIM is excedeed
-                error_msg = f"{operationAction.lower()} is already being handled."
+                error_msg = f"Too many requests have been sent. Try again soon."
                 error = ApplicationConfirmationController.add_attempt(appInstanceId, error_msg)
                 if error is not None:
-                        return error
-            '''
-            # Note:
-                All TODO tasks might be already in course if time interval definied
-                in termination notification has expired
-            '''
+                    return error
 
-            # TODO confirm deactivation of traffic rules
+            error_msg = f"There is no {operationAction.lower()} operation ongoing."
+            error = Conflict(error_msg)
+            return error.message()
 
-            # TODO confirm deactivation of dns rules
+        # if appStatus['indication'] == operationAction
+        # First attempt
+        if ApplicationConfirmationController.add_app_if_not_exists(appInstanceId):
+                pass
 
-            # TODO sending service availability notification to the MEC apps
-            # that consumes the services produced by the terminating/stopping
-            # MEC app instance (if app didn't started service deregistration yet)
+        # Next attempts
+        else:
+            # return TooManyRequests error with gived msg if RATE_LIM is excedeed
+            error_msg = f"{operationAction.lower()} is already being handled."
+            error = ApplicationConfirmationController.add_attempt(appInstanceId, error_msg)
+            if error is not None:
+                    return error
+        '''
+        # Note:
+            All TODO tasks might be already in course if time interval definied
+            in termination notification has expired
+        '''
+
+        oauth = cherrypy.config.get("oauth_server")
+
+        oauth.delete_client(appStatus['oauth']['client_id'], appStatus['oauth']['client_secret'])
+
+        query = {"appInstanceId": appInstanceId}
+        
+        result = cherrypy.thread_data.db.query_col(
+            "trafficRules", 
+            query=query,
+            fields=dict(appInstanceId=0)
+        )
+
+        for rule in result:
+
+            CallbackController.execute_callback(
+                args=[appInstanceId, rule],
+                func=CallbackController._removeTrafficRule,
+                sleep_time=0
+            )
             
-            time.sleep(1)  # to test TooManyRequests error
-
-            # TODO distinguish "TERMINATING" behaviour from "STOPPING".
-            # (?) TERMINATING: remove app and its services from appStatus and services collection (respectively)
-            # (?) STOPPING: keep app and services but change services "state" to INACTIVE or SUSPENDED
-            if (operationAction == "TERMINATING") or (operationAction == "STOPPING"):
-                if len(appStatus['services']) > 0:
-                    # list app services
-                    serv_lst = []
-                    for serv in appStatus['services']:
-                        serv_lst.append(serv['serInstanceId'])
-                    
-
-                    # TODO remove the MEC app instance from the list of instances
-                    # to be notified about service availability (subscriptions)
-                    # if not done yet
-
-
-                    # app services removal from services collection
-                    if serv_lst:
-                        in_serv_lst = dict()
-                        in_serv_lst['$in'] = serv_lst
-                        query_services = dict(serInstanceId=in_serv_lst)
-                        cherrypy.thread_data.db.remove_many('services', query_services)
-
-                # app removal from appStatus collection
-                cherrypy.thread_data.db.remove("appStatus", query_appStatus)
-
+            cherrypy.thread_data.db.remove(col= "trafficRules",
+            query=dict(trafficRuleId=rule['trafficRuleId']))
             
 
-            # remove appInstanceId from class dictionary
-            ApplicationConfirmationController.delete_app_attempts(appInstanceId)
+        query = dict(appInstanceId=appInstanceId, state="ACTIVE")
+
+        result = cherrypy.thread_data.db.query_col("dnsRules", query)
+
+        for rule in result:
+            CallbackController.execute_callback(
+                args=[appInstanceId, rule],
+                func=CallbackController._removeDnsRule,
+                sleep_time=0
+            )
+            
+            cherrypy.thread_data.db.remove(col= "dnsRules",
+            query=dict(dnsRuleId=rule['dnsRuleId']))           
+
+
+        appInstanceDict = dict(appInstanceId=appInstanceId)
+        cherrypy.thread_data.db.remove("appStatus", appInstanceDict)
+
+
+        lastModified = cherrypy.response.headers['Date']
+            
+        query = dict(
+                appInstanceId=appInstanceId, 
+                operation=OperationActionType.TERMINATING.name,
+        )
+
+        lcmOperationStatusDict = dict({"stateEnteredTime": lastModified, "operationStatus": OperationStatus.SUCCESSFULLY_DONE.name})
+        cherrypy.thread_data.db.update(
+            "lcmOperations", 
+            query, 
+            lcmOperationStatusDict
+        )
+
+        # TODO sending service availability notification to the MEC apps
+        # that consumes the services produced by the terminating/stopping
+        # MEC app instance (if app didn't started service deregistration yet)
+        
+        time.sleep(1)  # to test TooManyRequests error
+
+        # TODO distinguish "TERMINATING" behaviour from "STOPPING".
+        # (?) TERMINATING: remove app and its services from appStatus and services collection (respectively)
+        # (?) STOPPING: keep app and services but change services "state" to INACTIVE or SUSPENDED
+        if (operationAction == "TERMINATING") or (operationAction == "STOPPING"):
+            if len(appStatus['services']) > 0:
+                # list app services
+                serv_lst = []
+                for serv in appStatus['services']:
+                    serv_lst.append(serv['serInstanceId'])
+                
+
+                # TODO remove the MEC app instance from the list of instances
+                # to be notified about service availability (subscriptions)
+                # if not done yet
+
+
+                # app services removal from services collection
+                if serv_lst:
+                    in_serv_lst = dict()
+                    in_serv_lst['$in'] = serv_lst
+                    query_services = dict(serInstanceId=in_serv_lst)
+                    cherrypy.thread_data.db.remove_many('services', query_services)
+
+            # app removal from appStatus collection
+            cherrypy.thread_data.db.remove("appStatus", query_appStatus)
+
+        
+
+        # remove appInstanceId from class dictionary
+        ApplicationConfirmationController.delete_app_attempts(appInstanceId)
 
         cherrypy.response.status = 204
-
+        return None
 
         '''
         if appTerminationConfirmation.operationAction in [

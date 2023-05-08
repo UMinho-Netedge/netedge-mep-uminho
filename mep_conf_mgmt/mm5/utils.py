@@ -297,18 +297,18 @@ def check_port(port, base=1024):
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
     return value
 
-def trafficRuleToNetworkPolicy(appInstanceId: str, trafficRuleId: str, data: dict):
+def trafficRuleToNetworkPolicy(nameSpace: str, appInstanceId: str, trafficRuleId: str, data: dict):
 
     networkPolicy = {
         "apiVersion": "networking.k8s.io/v1",
         "kind": "NetworkPolicy",
         "metadata": {
             "name": "networkpolicy-%s" %trafficRuleId,
-            "namespace": "%s" %appInstanceId
+            "namespace": "%s" %nameSpace
         },
         "spec": {
             "podSelector": {
-                "matchLabels": {"appInstanceId": "%s" %appInstanceId}
+                "matchLabels": {"app.kubernetes.io/instance": "%s" %appInstanceId}
             },
             "policyTypes": ["Ingress", "Egress"],
             "ingress": data["ingress"],

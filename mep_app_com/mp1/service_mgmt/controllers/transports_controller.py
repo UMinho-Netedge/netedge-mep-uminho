@@ -35,7 +35,7 @@ class TransportsController:
             return error.message()
         
         data = json.loads(
-            '{"id":"string","name":"string","description":"string","type":"REST_HTTP","protocol":"string","version":"string","security":{"oAuth2Info":{"grantTypes":["OAUTH2_AUTHORIZATION_CODE"],"tokenEndpoint":"string"}},"implSpecificInfo":{}}'
+            '{"id":"0","name":"REST","description":"REST API","type":"REST_HTTP","protocol":"HTTP","version":"2.0","security":{"oAuth2Info":{"grantTypes":["OAUTH2_CLIENT_CREDENTIALS"],"tokenEndpoint":"/mec_app_support/v1/credentials/"}},"implSpecificInfo":{}}'
         )
         # transportInfo = TransportInfo.from_json(data)
         return data
