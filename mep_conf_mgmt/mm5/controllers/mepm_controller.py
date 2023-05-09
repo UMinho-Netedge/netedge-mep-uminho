@@ -303,16 +303,17 @@ class MecPlatformMgMtController:
                 operationStatus=OperationStatus.PROCESSING.name
             )
 
-            CallbackController.execute_callback(
-                args=[appInstanceId, lifecycleOperationOccurrenceId],
-                func=CallbackController._gracefulTerminationChecker,
-                sleep_time=termination.gracefulStopTimeout
-            )
+            time.sleep(termination.gracefulStopTimeout)
+            # CallbackController.execute_callback(
+            #     args=[appInstanceId, lifecycleOperationOccurrenceId],
+            #     func=CallbackController._gracefulTerminationChecker,
+            #     sleep_time=termination.gracefulStopTimeout
+            # )
             
 
-            cherrypy.thread_data.db.create("lcmOperations", lcmOperationOccurence)
+            # cherrypy.thread_data.db.create("lcmOperations", lcmOperationOccurence)
 
-            return dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId)
+            # return dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId)
 
         oauth = cherrypy.config.get("oauth_server")
 
@@ -487,9 +488,9 @@ class MecPlatformMgMtController:
             query=dict(appInstanceId=appInstanceId)
         )
 
-        dns_rules = [DNSRuleDescriptor(dnsRule=DNSRule.from_json(rule)) for rule in dns_rules]
+        dns_rules = [DNSRuleDescriptor(dnsRule=dns_rules.from_json(rule)) for rule in dns_rules]
 
-        return ConfigPlatformForAppResponse(appTrafficRule=traffic_rules, appDNSRule=dns_rules)
+        return ConfigPlatformForAppRequest(appTrafficRule=traffic_rules, appDNSRule=dns_rules)
 
 
     @json_out(cls=NestedEncoder)
