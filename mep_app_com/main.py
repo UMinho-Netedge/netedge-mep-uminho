@@ -404,5 +404,8 @@ if __name__ == "__main__":
     dns_api_port = os.environ.get("DNS_API_PORT")
     dnsApiServer = DnsApiServer(dns_api_addr, dns_api_port)
     cherrypy.config.update({"dns_api_server": dnsApiServer})
+
+    with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace") as namespace_file:
+        cherrypy.config.update({"namespace":namespace_file.read()}) 
     
     main(database)

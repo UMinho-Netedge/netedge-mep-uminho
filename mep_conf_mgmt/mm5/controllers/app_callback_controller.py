@@ -304,8 +304,19 @@ class CallbackController:
                 cherrypy.thread_data.db.remove(col= "dnsRules",
                 query=dict(dnsRuleId=rule['dnsRuleId']))           
 
-
             appInstanceDict = dict(appInstanceId=appInstanceId)
+
+            # remove application subscriptions of the collection
+            result =  cherrypy.thread_data.db.query_col(
+                "appSubscriptions", 
+                query=query,
+                fields=appInstanceDict,
+            )
+
+            for subscription in result:
+                cherrypy.thread_data.db.remove(col="appSubscriptions", query=dict(subscriptionId=subscription["subscriptionId"]))
+
+            # remove application from appstatus
             cherrypy.thread_data.db.remove("appStatus", appInstanceDict)
 
             cherrypy.thread_data.db.update(

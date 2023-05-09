@@ -110,9 +110,9 @@ class CallbackController:
         trafficRule: TrafficRule,
         sleep_time: int,
     ):
-
-        # cherrypy.log("Starting rule configuration function")
-        networkPolicy = trafficRuleToNetworkPolicy(appInstanceId=appInstanceId, trafficRuleId=trafficRule.trafficRuleId, data=trafficRule.toNetworkPolicy())
+        nameSpace = cherrypy.config.get("namespace")
+        cherrypy.log("Starting rule configuration function")
+        networkPolicy = trafficRuleToNetworkPolicy(nameSpace=nameSpace, appInstanceId=appInstanceId, trafficRuleId=trafficRule.trafficRuleId, data=trafficRule.toNetworkPolicy())
         # cherrypy.log("Network Policy")
         # cherrypy.log(json.dumps(networkPolicy))
 
@@ -133,10 +133,10 @@ class CallbackController:
         trafficRule: TrafficRule,
         sleep_time: int,
     ):
-
+        
         # cherrypy.log("Starting rule configuration function")
         networkPolicy = "networkpolicy-%s" %trafficRule['trafficRuleId']
-        namespace = appInstanceId
+        nameSpace = cherrypy.config.get("namespace")
         # cherrypy.log("Network Policy")
         # cherrypy.log(json.dumps(networkPolicy))
 
@@ -144,7 +144,7 @@ class CallbackController:
         config.load_incluster_config()
         k8s_client = client.ApiClient()
         api_instance = client.NetworkingV1Api(k8s_client)
-        api_instance.delete_namespaced_network_policy(name=networkPolicy, namespace=namespace)
+        api_instance.delete_namespaced_network_policy(name=networkPolicy, namespace=nameSpace)
         
         cherrypy.log("Traffic Rule Id %s removed: %f" %(trafficRule['trafficRuleId'], time.time()))
 

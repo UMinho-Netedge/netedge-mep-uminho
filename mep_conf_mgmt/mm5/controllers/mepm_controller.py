@@ -308,6 +308,7 @@ class MecPlatformMgMtController:
                 func=CallbackController._gracefulTerminationChecker,
                 sleep_time=termination.gracefulStopTimeout
             )
+            
 
             cherrypy.thread_data.db.create("lcmOperations", lcmOperationOccurence)
 
@@ -354,6 +355,17 @@ class MecPlatformMgMtController:
 
         appInstanceDict = dict(appInstanceId=appInstanceId)
         cherrypy.thread_data.db.remove("appStatus", appInstanceDict)
+
+
+        # remove application subscriptions of the collection
+        result =  cherrypy.thread_data.db.query_col(
+            "appSubscriptions", 
+            query=query,
+            fields=appInstanceDict,
+        )
+
+        for subscription in result:
+            cherrypy.thread_data.db.remove(col="appSubscriptions", query=dict(subscriptionId=subscription["subscriptionId"]))
 
 
         lifecycleOperationOccurrenceId = str(uuid.uuid4())
