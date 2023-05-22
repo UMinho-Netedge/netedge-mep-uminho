@@ -405,6 +405,10 @@ if __name__ == "__main__":
     dnsApiServer = DnsApiServer(dns_api_addr, dns_api_port)
     cherrypy.config.update({"dns_api_server": dnsApiServer})
 
+    mepconfig_url = os.environ.get("MEPCONFIG_SERVER")
+    mepconfig_port = os.environ.get("MEPCONFIG_PORT")
+    cherrypy.config.update({"mepconfig": (mepconfig_url, mepconfig_port)})
+
     with open("/var/run/secrets/kubernetes.io/serviceaccount/namespace") as namespace_file:
         cherrypy.config.update({"namespace":namespace_file.read()}) 
     

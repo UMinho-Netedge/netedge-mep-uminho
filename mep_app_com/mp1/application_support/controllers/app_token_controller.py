@@ -12,16 +12,14 @@
 #     See the License for the specific language governing permissions and
 #     limitations under the License.
 
-import json
 import sys
-from time import time_ns
+from time import sleep
 import cherrypy
 
 sys.path.append("../../")
 from mp1.models import *
-import uuid
 import jsonschema
-
+from kubernetes import client, config
 
 class AppTokenController:
 
@@ -54,9 +52,25 @@ class AppTokenController:
 
         # If app does not exist in db
         if appStatus is None:
-            error_msg = "Application %s was not found." % (appInstanceId)
-            error = NotFound(error_msg)
-            return error.message()
+            # THIS PART SHOULD BE REMOVED AS SOON AS AN MEPM IS PROVIDED
+            config.load_incluster_config()
+            k8s_client = client.CoreV1Api()
+            pod_spec = k8s_client.list_pod_for_all_namespaces(label_selector='pod-template-hash=%s' %appInstanceId).items
+            if not pod_spec:
+                error_msg = "Application was not provided by OSM. Unauthorized access."
+                error = Unauthorized(error_msg)
+                return error.message()
+
+            mepconfig_url, mepconfig_port = cherrypy.config.get('mepconfig')
+            response = requests.post('http://%s:%s/mec_platform_mgmt/v1/app_instances/%s/configure_platform_for_app' %(mepconfig_url, mepconfig_port, appInstanceId), json={})
+            cherrypy.log(response.text)
+            sleep(5)
+
+        appStatus = cherrypy.thread_data.db.query_col(
+            "appStatus",
+            query=dict(appInstanceId=appInstanceId),
+            find_one=True,
+        )
 
         credentials = appStatus["oauth"]
         

@@ -306,7 +306,7 @@ def trafficRuleToNetworkPolicy(nameSpace: str, appInstanceId: str, trafficRuleId
         },
         "spec": {
             "podSelector": {
-                "matchLabels": {"app.kubernetes.io/instance": "%s" %appInstanceId}
+                "matchLabels": {"pod-template-hash": "%s" %appInstanceId}
             },
             "policyTypes": ["Ingress", "Egress"],
             "ingress": data["ingress"],

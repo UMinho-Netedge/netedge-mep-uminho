@@ -48,7 +48,7 @@ spec:
                   key: mongodb_password
           volumeMounts:
             - name: mongodb-storage
-              mountPath: /data/db
+              mountPath: /tmp/db
       volumes:
         - name: mongodb-storage
           persistentVolumeClaim:
