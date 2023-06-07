@@ -27,6 +27,43 @@ class MecPlatformMgMtController:
 
     @cherrypy.tools.json_in()
     @json_out(cls=NestedEncoder)
+    def mecNS_configure(self, nsId: str):
+        #ConfigPlatform for App Request
+        
+        cherrypy.log("Received request to configure ns %s" %nsId)
+        
+        data = cherrypy.request.json
+        cherrypy.log("NS config is: \n %s" %data['K8s'])
+
+        appInstanceId = []
+
+        for k8s_config in data['K8s']:
+            config = k8s_config['detailed-status']
+            config = config.replace("'","\"")
+            config = config.replace("None","\"None\"")
+            config = config.replace("True","\"True\"")
+            config = config.replace("False","\"False\"")
+            config = json.loads(config)
+            for resource in config['manifest']:
+                if resource['kind'] in ['ReplicaSet', 'StatefulSet', 'DaemonSet', 'Job', 'Deployment']:
+                    namespace = resource['spec']['template']['metadata']['namespace']
+                    containers = resource['spec']['template']['spec']['containers']
+                    for container in containers:
+                        config.load_incluster_config()
+                        k8s_client = client.CoreV1Api()
+                        # NOW IT SHOULD GET THE pod-hash-template of each container and create the mecApp_configure using the pod tag pod-hash-template as appInstanceId
+                        # pod_spec = k8s_client.list_pod_for_all_namespaces(label_selector='pod-template-hash=%s' %appInstanceId).items
+                        
+
+        # create nsStatusDict associating the nsId with all appInstanceIds so it can be used in mecNs_terminate
+        # cherrypy.thread_data.db.create("nsStatus", nsStatusDict)
+
+
+        cherrypy.response.status = 201
+        return dict(lifecycleOperationOccurrenceId=lifecycleOperationOccurrenceId)
+
+    @cherrypy.tools.json_in()
+    @json_out(cls=NestedEncoder)
     def mecApp_configure(self, appInstanceId: str):
         #ConfigPlatform for App Request
         
