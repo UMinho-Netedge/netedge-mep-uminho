@@ -38,7 +38,7 @@ def main(database: Type[DatabaseBase]):
         name="Configure MEC App instance on start-up",
         action="mecApp_configure",
         controller=MecPlatformMgMtController,
-        route="/app_instances/:appInstanceId/configure_platform_for_app",
+        route="/app_instances/:nsId/configure_platform_for_app",
         conditions=dict(mecthod=["POST"]),
     )
 
@@ -54,7 +54,7 @@ def main(database: Type[DatabaseBase]):
         name="Terminte MEC App instance",
         action="mecApp_terminate",
         controller=MecPlatformMgMtController,
-        route="/app_instances/:appInstanceId/terminate",
+        route="/app_instances/:nsId/terminate",
         conditions=dict(method=["POST"]),
     )
 

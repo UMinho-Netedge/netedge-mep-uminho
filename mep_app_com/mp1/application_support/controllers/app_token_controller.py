@@ -53,18 +53,18 @@ class AppTokenController:
         # If app does not exist in db
         if appStatus is None:
             # THIS PART SHOULD BE REMOVED AS SOON AS AN MEPM IS PROVIDED
-            config.load_incluster_config()
-            k8s_client = client.CoreV1Api()
-            pod_spec = k8s_client.list_pod_for_all_namespaces(label_selector='pod-template-hash=%s' %appInstanceId).items
-            if not pod_spec:
-                error_msg = "Application was not provided by OSM. Unauthorized access."
-                error = Unauthorized(error_msg)
-                return error.message()
+            # config.load_incluster_config()
+            # k8s_client = client.CoreV1Api()
+            # pod_spec = k8s_client.list_pod_for_all_namespaces(label_selector='pod-template-hash=%s' %appInstanceId).items
+            # if not pod_spec:
+            error_msg = "Application was not provided by OSM. Unauthorized access."
+            error = Unauthorized(error_msg)
+            return error.message()
 
-            mepconfig_url, mepconfig_port = cherrypy.config.get('mepconfig')
-            response = requests.post('http://%s:%s/mec_platform_mgmt/v1/app_instances/%s/configure_platform_for_app' %(mepconfig_url, mepconfig_port, appInstanceId), json={})
-            cherrypy.log(response.text)
-            sleep(5)
+            # mepconfig_url, mepconfig_port = cherrypy.config.get('mepconfig')
+            # response = requests.post('http://%s:%s/mec_platform_mgmt/v1/app_instances/%s/configure_platform_for_app' %(mepconfig_url, mepconfig_port, appInstanceId), json={})
+            # cherrypy.log(response.text)
+            # sleep(5)
 
         appStatus = cherrypy.thread_data.db.query_col(
             "appStatus",
