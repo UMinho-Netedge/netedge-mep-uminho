@@ -212,3 +212,5 @@ internal-tests/
 
 #Remove charts
 *.tgz
+
+mep_app_com/coredns/zone0.db
