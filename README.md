@@ -10,6 +10,12 @@ The NetEdge MEP Service provides MEP functionalities for MEPM and MEC Apps, usin
 
 For more information on NetEdge-MEP check: https://github.com/UMinho-Netedge/NetEdge-MEP/
 
+If you use it, please refer to:
+
+Ferreira, V., Bastos, J., Martins, A., Araújo, P., Lori, N., Faria, J., Costa, A., López, H. (2023).
+NETEDGE MEP: A CNF-based Multi-access Edge Computing Platform. 
+ISCC 2023 Proceedings.
+
 ## References
 <a id="1">[1]</a>
 Ferreira, V., Bastos, J., Martins, A., Araújo, P., Lori, N., Faria, J., Costa, A., López, H. (2023).
